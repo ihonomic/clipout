@@ -18,6 +18,10 @@ struct ClipoutApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainActor.assumeIsolated {
+            if CommandLine.arguments.contains("--repair-audio") {
+                Task { await AudioRepair.run() }
+                return
+            }
             if CommandLine.arguments.contains("--selftest") {
                 Task { await SelfTest.run() }
                 return

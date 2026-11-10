@@ -174,6 +174,7 @@ defaults delete com.ihonomic.clipout
 - “Never store”: built-in patterns shown in Settings, plus your own (text or `/regex/`).
 - History entries are deleted after 24 hours by default.
 - Hardened Runtime; only `http(s)` links on cards; private file permissions.
+- Fixed: audio from enhanced system voices was cut off or could not be played.
 
 **0.1.0**
 - First release (universal binary: Apple Silicon and Intel).

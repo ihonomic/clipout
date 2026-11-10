@@ -1,4 +1,5 @@
 import AppKit
+import AVFAudio
 import ClipoutCore
 
 /// `Clipout --selftest`: checks the parts that need the real system (Anki,
@@ -30,10 +31,13 @@ enum SelfTest {
             lines.append("Wörterbuch \(word): \(e.map { "\($0.lemma ?? "-") | \($0.definitions.joined(separator: "; "))" } ?? "nichts")")
         }
 
+        // Several sentences: enhanced voices deliver them in several buffers.
         let audio = Paths.root.appendingPathComponent("selftest.m4a")
-        let spoke = await controller.speech.makeAudio("Das ist ein Test.", language: Prefs.sourceLang, to: audio)
-        let size = (try? FileManager.default.attributesOfItem(atPath: audio.path)[.size] as? Int) ?? 0
-        lines.append("Audio: \(spoke), \(size) Bytes, Stimme: \(SpeechMaker.bestVoice(for: Prefs.sourceLang)?.name ?? "-")")
+        let spoke = await controller.speech.makeAudio(
+            "Jeden Tag von Toledo nach Madrid. Gerade als ich an der Universität angekommen war, erfuhr ich von dem Unfall.",
+            language: Prefs.sourceLang, to: audio)
+        let seconds = (try? AVAudioFile(forReading: audio)).map { Double($0.length) / $0.fileFormat.sampleRate } ?? 0
+        lines.append("Audio: \(spoke), lesbar \(String(format: "%.1f", seconds)) s, Stimme: \(SpeechMaker.bestVoice(for: Prefs.sourceLang)?.name ?? "-")")
         try? FileManager.default.removeItem(at: audio)
 
         lines.append("Bedienungshilfen erlaubt: \(SelectionReader.isTrusted)")
@@ -83,6 +87,48 @@ enum SelfTest {
         lines.append("Verlauf-Standard: \(Prefs.historyDays) Tag(e)")
 
         print(lines.joined(separator: "\n"))
+        fflush(stdout)
+        exit(0)
+    }
+}
+
+/// `Clipout --repair-audio`: re-creates the audio of every Clipout note in
+/// Anki under its existing file name. For cards made before the audio fix,
+/// whose files were cut off by enhanced voices.
+@MainActor
+enum AudioRepair {
+    static func run() async {
+        Prefs.registerDefaults()
+        Paths.ensure()
+        let client = AnkiClient(port: Prefs.ankiPort)
+        struct Info: Decodable {
+            struct F: Decodable { let value: String }
+            let noteId: Int
+            let fields: [String: F]
+        }
+        let ids = ((try? await client.call("findNotes", ["query": "tag:clipout"], as: [Int].self)) ?? nil) ?? []
+        let notes = ((try? await client.call("notesInfo", ["notes": ids], as: [Info].self)) ?? nil) ?? []
+        var repaired = 0
+        for note in notes {
+            let audio = note.fields["Audio"]?.value ?? ""
+            guard audio.hasPrefix("[sound:"), audio.hasSuffix("]") else { continue }
+            let name = String(audio.dropFirst(7).dropLast())
+            let html = note.fields["Sentence"]?.value ?? note.fields["Text"]?.value ?? ""
+            let text = html
+                .replacingOccurrences(of: #"\{\{c\d+::(.*?)(::.*?)?\}\}"#, with: "$1", options: .regularExpression)
+                .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">")
+                .replacingOccurrences(of: "&quot;", with: "\"").replacingOccurrences(of: "&amp;", with: "&")
+            let url = Paths.media.appendingPathComponent(name)
+            guard !text.isEmpty,
+                  await AppController.shared.speech.makeAudio(text, language: Prefs.sourceLang, to: url),
+                  let data = try? Data(contentsOf: url) else { continue }
+            _ = try? await client.call("storeMediaFile", ["filename": name, "data": data.base64EncodedString()],
+                                       as: Ignored.self, timeout: 30)
+            try? FileManager.default.removeItem(at: url)
+            repaired += 1
+        }
+        print("Audio neu erzeugt: \(repaired) von \(notes.count) Clipout-Karten")
         fflush(stdout)
         exit(0)
     }

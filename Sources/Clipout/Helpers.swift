@@ -35,9 +35,20 @@ final class Translator: ObservableObject {
 
 /// Reads the sentence aloud with the best installed system voice and saves it
 /// as .m4a for the back of the card.
+///
+/// The voice's buffers are first collected in memory and the file is written
+/// in one go once speaking has finished. Writing while the voice was still
+/// delivering broke the files of enhanced voices (several buffers, empty ones
+/// in between): Anki showed a play button that played nothing.
 @MainActor
-final class SpeechMaker {
+final class SpeechMaker: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    private var finished: (() -> Void)?
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
 
     static func bestVoice(for language: String) -> AVSpeechSynthesisVoice? {
         AVSpeechSynthesisVoice.speechVoices()
@@ -48,42 +59,73 @@ final class SpeechMaker {
     func makeAudio(_ text: String, language: String, to url: URL) async -> Bool {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.bestVoice(for: language)
-        var file: AVAudioFile?
-        var done = false
-        let ok: Bool = await withCheckedContinuation { continuation in
-            func finish(_ result: Bool) {
+        var buffers: [AVAudioPCMBuffer] = []
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            var done = false
+            let finish = {
                 guard !done else { return }
                 done = true
-                continuation.resume(returning: result)
+                continuation.resume()
             }
+            finished = finish
             synthesizer.write(utterance) { buffer in
-                guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-                if pcm.frameLength == 0 {
-                    finish(file != nil)
-                    return
-                }
-                do {
-                    if file == nil {
-                        let settings: [String: Any] = [
-                            AVFormatIDKey: kAudioFormatMPEG4AAC,
-                            AVSampleRateKey: pcm.format.sampleRate,
-                            AVNumberOfChannelsKey: pcm.format.channelCount,
-                            AVEncoderBitRateKey: 64_000,
-                        ]
-                        file = try AVAudioFile(forWriting: url, settings: settings,
-                                               commonFormat: pcm.format.commonFormat,
-                                               interleaved: pcm.format.isInterleaved)
-                    }
-                    try file?.write(from: pcm)
-                } catch {
-                    finish(false)
-                }
+                // The buffer may be reused by the synthesizer: keep a copy.
+                guard let pcm = buffer as? AVAudioPCMBuffer, pcm.frameLength > 0,
+                      let copy = Self.copy(pcm) else { return }
+                DispatchQueue.main.async { buffers.append(copy) }
             }
-            // Some voices never send the final empty buffer.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { finish(file != nil) }
+            // Safety net if the voice never reports the end.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { finish() }
         }
-        file = nil   // closes the file so AAC is finalized
-        return ok
+        finished = nil
+        // Let buffers already queued on the main thread arrive.
+        try? await Task.sleep(for: .milliseconds(100))
+        guard !buffers.isEmpty else { return false }
+        return Self.write(buffers, to: url)
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.finished?() } }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.finished?() } }
+    }
+
+    private nonisolated static func copy(_ pcm: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(pcmFormat: pcm.format, frameCapacity: pcm.frameLength) else { return nil }
+        copy.frameLength = pcm.frameLength
+        let src = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: pcm.audioBufferList))
+        let dst = UnsafeMutableAudioBufferListPointer(copy.mutableAudioBufferList)
+        for (from, to) in zip(src, dst) {
+            guard let fromData = from.mData, let toData = to.mData else { return nil }
+            memcpy(toData, fromData, Int(min(from.mDataByteSize, to.mDataByteSize)))
+        }
+        return copy
+    }
+
+    /// Writes AAC (.m4a) and checks that the file can be read back.
+    private static func write(_ buffers: [AVAudioPCMBuffer], to url: URL) -> Bool {
+        let format = buffers[0].format
+        try? FileManager.default.removeItem(at: url)
+        do {
+            // Scoped so the file is closed (and the AAC finalized) before reading it back.
+            let settings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: format.sampleRate,
+                AVNumberOfChannelsKey: format.channelCount,
+                AVEncoderBitRateKey: 64_000,
+            ]
+            let file = try AVAudioFile(forWriting: url, settings: settings,
+                                       commonFormat: format.commonFormat, interleaved: format.isInterleaved)
+            for buffer in buffers where buffer.format == format {
+                try file.write(from: buffer)
+            }
+        } catch {
+            return false
+        }
+        guard let check = try? AVAudioFile(forReading: url), check.length > 0 else { return false }
+        return true
     }
 }
 
