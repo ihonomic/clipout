@@ -12,6 +12,7 @@ final class AppController: ObservableObject {
     let translator = Translator()
     let speech = SpeechMaker()
     let dictionary = DictionaryLookup()
+    let patterns = PatternStore()
     private let watcher = SelectionWatcher()
     private var hotKey: HotKey?
 
@@ -31,6 +32,7 @@ final class AppController: ObservableObject {
         Prefs.registerDefaults()
         Paths.ensure()
         anki.start()
+        patterns.start(clips: clips)
         clips.start()
         Task { await translator.refresh() }
 
@@ -127,7 +129,9 @@ final class AppController: ObservableObject {
 
     // MARK: - Cards
 
-    func openComposer(text: String, source: (url: String, title: String), imageURL: URL? = nil) {
+    /// `temporaryImage`: a decrypted copy that is deleted when the window closes.
+    func openComposer(text: String, source: (url: String, title: String), imageURL: URL? = nil,
+                      temporaryImage: Bool = false) {
         let model = ComposerModel(text: text, source: source, imageURL: imageURL)
         var window: NSWindow?
         let view = ComposerView(model: model, controller: self) { window?.close() }
@@ -136,6 +140,7 @@ final class AppController: ObservableObject {
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window,
                                                queue: .main) { [weak self] note in
             Task { @MainActor in self?.windows.removeAll { $0 === note.object as? NSWindow } }
+            if temporaryImage, let imageURL { try? FileManager.default.removeItem(at: imageURL) }
         }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
@@ -145,8 +150,8 @@ final class AppController: ObservableObject {
         let source = (url: "", title: item.appName ?? "")
         if let text = item.text {
             openComposer(text: text, source: source)
-        } else if let url = clips.imageURL(item) {
-            openComposer(text: "", source: source, imageURL: url)
+        } else if let url = clips.temporaryImageFile(item) {
+            openComposer(text: "", source: source, imageURL: url, temporaryImage: true)
         }
     }
 
@@ -169,7 +174,8 @@ final class AppController: ObservableObject {
                 media.append(name)
             }
         }
-        return await anki.send(CardModels.note(for: draft, deck: Prefs.deck), media: media)
+        return await anki.send(CardModels.note(for: draft, deck: Prefs.deck, clozeModel: anki.clozeModel),
+                               media: media)
     }
 
     // MARK: - Windows and messages
@@ -179,9 +185,13 @@ final class AppController: ObservableObject {
             settingsWindow = makeWindow(title: L("Clipout – Einstellungen"), size: NSSize(width: 500, height: 640),
                                         content: SettingsView(controller: self))
         }
-        settingsWindow?.title = L("Clipout – Einstellungen")
+        updateSettingsTitle()
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    func updateSettingsTitle() {
+        settingsWindow?.title = L("Clipout – Einstellungen")
     }
 
     func openWelcome() {

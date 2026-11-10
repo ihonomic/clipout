@@ -39,7 +39,10 @@ if [[ -z "${SIGN_IDENTITY:-}" ]]; then
         echo "Hinweis: kein Zertifikat \"Clipout Dev\" – ad hoc signiert, Bedienungshilfen nach dem Start neu erlauben."
     fi
 fi
-codesign --force --sign "$SIGN_IDENTITY" --identifier com.ihonomic.clipout "$APP"
+# Hardened Runtime: without it another program could inject code into
+# Clipout (DYLD_INSERT_LIBRARIES) and use its Accessibility permission.
+codesign --force --sign "$SIGN_IDENTITY" --identifier com.ihonomic.clipout \
+    --options runtime --entitlements Resources/Clipout.entitlements "$APP"
 echo "Fertig: $APP"
 
 if [[ "${1:-}" == "--open" ]]; then

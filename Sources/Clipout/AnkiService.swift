@@ -50,11 +50,15 @@ final class AnkiService: ObservableObject {
 
     private var client: AnkiClient { AnkiClient(port: Prefs.ankiPort) }
     private var flushing = false
+    /// The cloze note type in use: "Clipout Cloze", or "Clipout Lücke" when an
+    /// older version already created that one.
+    private(set) var clozeModel = CardModels.cloze
     private var outcomes: [UUID: SendOutcome] = [:]
     private var timer: Timer?
 
     func start() {
-        queue = JSONFile.load([QueuedCard].self, from: Paths.queue) ?? []
+        queue = SealedFile.load([QueuedCard].self, from: Paths.queue)
+            ?? SealedFile.migrate([QueuedCard].self, from: Paths.legacyQueue, to: Paths.queue) ?? []
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
             Task { @MainActor in await self.poll() }
         }
@@ -104,7 +108,8 @@ final class AnkiService: ObservableObject {
         defer { flushing = false }
         do {
             try await prepareAnki()
-            while let card = queue.first {
+            while var card = queue.first {
+                card.note = card.note.migrated(clozeModel: clozeModel)
                 let check = try await client.call("canAddNotesWithErrorDetail",
                                                   ["notes": [card.note]], as: [CanAddResult].self)
                 if let result = check?.first, !result.canAdd {
@@ -141,7 +146,7 @@ final class AnkiService: ObservableObject {
     }
 
     private func save() {
-        JSONFile.save(queue, to: Paths.queue)
+        SealedFile.save(queue, to: Paths.queue)
     }
 
     // MARK: - Note types and decks
@@ -172,6 +177,12 @@ final class AnkiService: ObservableObject {
         let model: Model
     }
 
+    private struct FieldRename: Encodable {
+        let modelName: String
+        let oldFieldName: String
+        let newFieldName: String
+    }
+
     private struct FieldAdd: Encodable {
         let modelName: String
         let fieldName: String
@@ -191,19 +202,28 @@ final class AnkiService: ObservableObject {
     /// write fails ("Close the affected editor…").
     private func prepareAnki() async throws {
         let models = try await client.call("modelNames", NoParams(), as: [String].self) ?? []
+        clozeModel = !models.contains(CardModels.cloze) && models.contains(CardModels.legacyCloze)
+            ? CardModels.legacyCloze : CardModels.cloze
         let wanted: [(name: String, fields: [String], cloze: Bool, front: String, back: String)] = [
             (CardModels.basic, CardModels.basicFields, false, CardModels.basicFront, CardModels.basicBack),
-            (CardModels.cloze, CardModels.clozeFields, true, CardModels.clozeFront, CardModels.clozeBack),
+            (clozeModel, CardModels.clozeFields, true, CardModels.clozeFront, CardModels.clozeBack),
         ]
         for m in wanted {
             if !models.contains(m.name) {
                 _ = try await client.call("createModel", CreateModel(
                     modelName: m.name, inOrderFields: m.fields, css: CardModels.css, isCloze: m.cloze,
-                    cardTemplates: [.init(Name: "Karte 1", Front: m.front, Back: m.back)]), as: Ignored.self)
+                    cardTemplates: [.init(Name: "Card 1", Front: m.front, Back: m.back)]), as: Ignored.self)
                 continue
             }
-            // Fields added in later versions (Erklärung, Hören) go to the end.
             var have = try await client.call("modelFieldNames", ["modelName": m.name], as: [String].self) ?? []
+            // 0.1.x used German field names; renaming keeps every card's content
+            // (Anki updates the templates' references itself).
+            for (old, new) in CardModels.legacyFieldNames where have.contains(old) && !have.contains(new) {
+                _ = try await client.call("modelFieldRename", FieldRename(modelName: m.name, oldFieldName: old,
+                                                                          newFieldName: new), as: Ignored.self)
+                have = have.map { $0 == old ? new : $0 }
+            }
+            // Fields added in later versions go to the end.
             for field in m.fields where !have.contains(field) {
                 _ = try await client.call("modelFieldAdd", FieldAdd(modelName: m.name, fieldName: field,
                                                                     index: have.count), as: Ignored.self)

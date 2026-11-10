@@ -74,3 +74,97 @@ public enum PasteboardRules {
         return types.contains { privateTypes.contains($0) }
     }
 }
+
+/// A built-in rule: what it catches (shown in Settings) and how.
+public struct SecretRule: Sendable {
+    public let label: String
+    public let pattern: String
+}
+
+/// Recognizes copied secrets so they never reach the history. A language
+/// learner copies sentences and words, not tokens: anything that looks like a
+/// key, token or one-time code is skipped.
+public enum SecretDetector {
+    /// Fixed rules; users can add their own (see CustomPattern) but not change these.
+    public static let builtInRules: [SecretRule] = [
+        SecretRule(label: "Private Schlüssel (-----BEGIN … PRIVATE KEY-----)",
+                   pattern: #"-----BEGIN [A-Z ]*PRIVATE KEY-----"#),
+        SecretRule(label: "Stripe-Schlüssel (sk_live_…, pk_test_…)",
+                   pattern: #"\b(sk|pk|rk)_(live|test)_[A-Za-z0-9]{10,}"#),
+        SecretRule(label: "OpenAI-/Anthropic-Schlüssel (sk-…)", pattern: #"\bsk-[A-Za-z0-9_\-]{16,}"#),
+        SecretRule(label: "GitHub-Tokens (ghp_…, github_pat_…)",
+                   pattern: #"\b((ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})"#),
+        SecretRule(label: "GitLab-Tokens (glpat-…)", pattern: #"\bglpat-[A-Za-z0-9_\-]{16,}"#),
+        SecretRule(label: "Slack-Tokens (xoxb-…)", pattern: #"\bxox[abprs]-[A-Za-z0-9\-]{10,}"#),
+        SecretRule(label: "AWS-Zugangsschlüssel (AKIA…)", pattern: #"\bAKIA[0-9A-Z]{16}\b"#),
+        SecretRule(label: "Google-API-Schlüssel (AIza…)", pattern: #"\bAIza[0-9A-Za-z_\-]{30,}"#),
+        SecretRule(label: "JSON Web Tokens (eyJ….eyJ….)",
+                   pattern: #"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\."#),
+        SecretRule(label: "Zuweisungen wie „Passwort: …“, „API_KEY=…“, „token=…“",
+                   pattern: #"(?i)\b(password|passwort|kennwort|api[_-]?key|secret|token)\s*[:=]\s*\S+"#),
+    ]
+
+    /// Rules that are checks rather than patterns, for the Settings list.
+    public static let heuristicLabels = [
+        "Lange Zeichenketten aus Buchstaben und Ziffern ohne Leerzeichen (Passwörter, Tokens)",
+        "Zahlen aus 4–8 Ziffern (PINs, Bestätigungscodes)",
+    ]
+
+    public static func looksSecret(_ text: String, custom: [String] = []) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return false }
+        for rule in builtInRules where trimmed.range(of: rule.pattern, options: .regularExpression) != nil {
+            return true
+        }
+        if custom.contains(where: { CustomPattern.matches(trimmed, $0) }) { return true }
+        // One "word" without spaces that mixes letters and digits and is long:
+        // a password or token. German compounds have no digits.
+        if !trimmed.contains(where: \.isWhitespace) {
+            let hasLetter = trimmed.contains(where: \.isLetter)
+            let hasDigit = trimmed.contains(where: \.isNumber)
+            if trimmed.count >= 16 && hasLetter && hasDigit { return true }
+            // one-time codes: 4–8 digits, maybe with a dash
+            let digits = trimmed.filter { $0 != "-" }
+            if (4...8).contains(digits.count) && digits.allSatisfy(\.isNumber) { return true }
+        }
+        return false
+    }
+}
+
+/// A pattern the user adds in Settings: plain text that must appear
+/// (case-insensitive), or a regular expression written as /…/.
+public enum CustomPattern {
+    public static func isRegex(_ pattern: String) -> Bool {
+        pattern.count >= 3 && pattern.hasPrefix("/") && pattern.hasSuffix("/")
+    }
+
+    /// nil if fine, else why not (in German, shown in Settings).
+    public static func problem(_ pattern: String) -> String? {
+        let p = pattern.trimmingCharacters(in: .whitespaces)
+        if p.isEmpty { return "Leeres Muster" }
+        if isRegex(p), (try? NSRegularExpression(pattern: String(p.dropFirst().dropLast()))) == nil {
+            return "Ungültiger regulärer Ausdruck"
+        }
+        if !isRegex(p) && p.count < 2 { return "Zu kurz: mindestens 2 Zeichen" }
+        return nil
+    }
+
+    public static func matches(_ text: String, _ pattern: String) -> Bool {
+        let p = pattern.trimmingCharacters(in: .whitespaces)
+        guard problem(p) == nil else { return false }
+        if isRegex(p) {
+            return text.range(of: String(p.dropFirst().dropLast()), options: .regularExpression) != nil
+        }
+        return text.range(of: p, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+}
+
+extension History {
+    /// Drops entries older than `days` (0 = keep forever).
+    public static func pruned(_ list: [ClipItem], keepingDays days: Int,
+                              now: Date = Date()) -> (list: [ClipItem], dropped: [ClipItem]) {
+        guard days > 0 else { return (list, []) }
+        let limit = now.addingTimeInterval(-Double(days) * 86_400)
+        return (list.filter { $0.date >= limit }, list.filter { $0.date < limit })
+    }
+}

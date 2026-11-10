@@ -133,7 +133,7 @@ struct ClipRow: View {
         VStack(alignment: .leading, spacing: 4) {
             if let text = item.text {
                 Text(Sentence.clean(text)).lineLimit(3).font(.system(size: 13))
-            } else if let url = controller.clips.imageURL(item), let image = NSImage(contentsOf: url) {
+            } else if let image = controller.clips.image(item) {
                 Image(nsImage: image).resizable().scaledToFit()
                     .frame(maxWidth: 220, maxHeight: 90, alignment: .leading)
                     .clipShape(RoundedRectangle(cornerRadius: 5))
@@ -205,6 +205,7 @@ struct LanguageSection: View {
 struct SettingsView: View {
     @ObservedObject var controller: AppController
     @ObservedObject var translator: Translator
+    @ObservedObject var patterns: PatternStore
     @ObservedObject private var state = SettingsState()
 
     @AppStorage(L10n.key) private var appLanguage = L10n.language
@@ -216,12 +217,14 @@ struct SettingsView: View {
     @AppStorage(Prefs.showIconKey) private var showIcon = true
     @AppStorage(Prefs.copyFallbackKey) private var copyFallback = true
     @AppStorage(Prefs.historyLimitKey) private var historyLimit = 200
+    @AppStorage(Prefs.historyDaysKey) private var historyDays = 1
     @AppStorage(Prefs.pauseClipboardKey) private var pauseClipboard = false
     @AppStorage(Prefs.ankiPortKey) private var ankiPort = 8765
 
     init(controller: AppController) {
         self.controller = controller
         translator = controller.translator
+        patterns = controller.patterns
     }
 
     var body: some View {
@@ -265,9 +268,16 @@ struct SettingsView: View {
             Section(L("Zwischenablage")) {
                 Toggle(L("Verlauf pausieren"), isOn: $pauseClipboard)
                 Stepper(L("Höchstens %d Einträge", historyLimit), value: $historyLimit, in: 20...1000, step: 20)
-                Text(L("Passwörter aus Passwort-Managern werden nie gespeichert. Alles bleibt auf diesem Mac."))
+                Picker(L("Automatisch löschen nach"), selection: $historyDays) {
+                    Text(L("1 Tag")).tag(1)
+                    Text(L("%d Tagen", 7)).tag(7)
+                    Text(L("%d Tagen", 30)).tag(30)
+                    Text(L("Nie")).tag(0)
+                }
+                Text(L("Der Verlauf ist verschlüsselt (Schlüssel im Schlüsselbund). Passwörter, API-Schlüssel, Tokens und Codes werden nie gespeichert. Alles bleibt auf diesem Mac."))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            neverStore
             Section(L("System")) {
                 Toggle(L("Beim Anmelden starten"), isOn: $state.launchAtLogin)
                     .onChange(of: state.launchAtLogin) { _, on in
@@ -282,6 +292,63 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(minWidth: 480, minHeight: 560)
         .id(appLanguage)
+        .onChange(of: appLanguage) { controller.updateSettingsTitle() }
+    }
+}
+
+extension SettingsView {
+    /// Built-in rules (locked) and the user's own patterns.
+    var neverStore: some View {
+        Section(L("Nie speichern")) {
+            DisclosureGroup(L("Eingebaute Muster (%d)", SecretDetector.builtInRules.count
+                              + SecretDetector.heuristicLabels.count + 1)) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(SecretDetector.builtInRules.map(\.label) + SecretDetector.heuristicLabels
+                            + ["Alles aus Passwort-Managern (Passwörter, 1Password, Bitwarden, Schlüsselbund)"],
+                            id: \.self) { label in
+                        Label(L(label), systemImage: "lock.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            ForEach(patterns.patterns, id: \.self) { pattern in
+                // LabeledContent is how a grouped Form expects a row with a
+                // trailing control; a plain HStack row swallowed the click.
+                LabeledContent {
+                    Button(role: .destructive) { patterns.remove(pattern) } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L("Muster entfernen"))
+                } label: {
+                    Text(pattern).font(.system(.body, design: .monospaced))
+                }
+                .contextMenu {
+                    Button(L("Muster entfernen"), role: .destructive) { patterns.remove(pattern) }
+                }
+            }
+            HStack {
+                // In a grouped Form a titled TextField turns the title into a
+                // label and the field itself has no border: nobody saw where to type.
+                TextField("", text: $patterns.draft, prompt: Text(L("Eigenes Muster, z. B. Kundennummer")))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
+                    .onSubmit { patterns.add() }
+                Button(L("Hinzufügen")) { patterns.add() }
+                    .disabled(patterns.draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if let error = patterns.error {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+            if let notice = patterns.notice {
+                Text(notice).font(.caption).foregroundStyle(.secondary)
+            }
+            Text(L("Text, der irgendwo vorkommt (Groß-/Kleinschreibung egal), oder /regulärer Ausdruck/. Passende Einträge werden sofort und endgültig aus dem Verlauf gelöscht. Deine Muster werden verschlüsselt gespeichert."))
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 
