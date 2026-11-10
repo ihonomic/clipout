@@ -1,0 +1,26 @@
+name: Feature request
+description: An idea that would make Clipout better for learning
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, not only the solution. Which language do you learn, where do you read?
+      placeholder: "When I read Spanish news in Safari, I want to …"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could Clipout help? Mockups or examples welcome.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Clipout's principles
+      options:
+        - label: I understand that Clipout keeps everything on the Mac and doesn't add accounts, tracking or paid cloud services.
+          required: true

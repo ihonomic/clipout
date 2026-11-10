@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in Clipout doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time! Please **don't paste personal text, API keys or screenshots of private data**: issues are public.
+        Found a security problem? Don't open an issue, see [SECURITY.md](https://github.com/ihonomic/clipout/blob/main/SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        1. Selected a sentence in Chrome
+        2. Clicked “+ Anki”
+        3. Expected … but …
+    validations:
+      required: true
+  - type: input
+    id: clipout
+    attributes:
+      label: Clipout version
+      description: The release you downloaded, or Finder → Applications → Clipout → Get Info
+      placeholder: "0.1.1"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac
+      placeholder: "macOS 26.1, Apple Silicon"
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: App where you selected the text
+      placeholder: "Chrome, Safari, Preview (PDF), …"
+  - type: input
+    id: languages
+    attributes:
+      label: Languages
+      description: “I'm learning” → “Translate into”
+      placeholder: "German → English"
+  - type: input
+    id: anki
+    attributes:
+      label: Anki and AnkiConnect version
+      placeholder: "Anki 25.09, AnkiConnect 2025-…"
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Error messages from the Clipout menu, screenshots (without private data)
