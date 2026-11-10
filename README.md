@@ -178,3 +178,7 @@ defaults delete com.ihonomic.clipout
 
 **0.1.0**
 - First release (universal binary: Apple Silicon and Intel).
+
+## License
+
+[MIT](LICENSE) © 2026 Ihonosetale Oseghale. Contributions are welcome under the same license, see [CONTRIBUTING.md](CONTRIBUTING.md).
