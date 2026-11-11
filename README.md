@@ -152,14 +152,6 @@ Everything Clipout keeps lives in `~/Library/Application Support/Clipout` (reada
 | `patterns.sealed` | your own “never store” patterns |
 | `media/` | audio and images briefly, until Anki has them |
 
-To remove everything, quit Clipout and run:
-
-```bash
-rm -rf ~/Library/Application\ Support/Clipout
-security delete-generic-password -s com.ihonomic.clipout -a storage-key
-defaults delete com.ihonomic.clipout
-```
-
 ## Structure
 
 | Folder | Contents |
