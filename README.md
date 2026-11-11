@@ -1,5 +1,9 @@
 # Clipout
 
+<p align="center">
+  <img src="pics/cover.png" width="800" alt="The Clipout app icon next to its welcome window">
+</p>
+
 Select a sentence anywhere on your Mac (in Chrome, Safari, a PDF or any other app) and turn it into an Anki card with one click.
 
 - **Front:** the sentence
