@@ -63,7 +63,7 @@ Needs macOS 26 or later (Apple Silicon or Intel) and [Anki](https://apps.ankiweb
 - **⌥⌘A:** sends the selection as a card right away, without a window.
 - **Clipboard history:** the menu bar icon lists everything you copied, text and images. Every row has a “+ Anki” button.
 - **Translation:** Apple's on-device translation, offline and free.
-- **Audio:** the system voice reads the sentence. The recording goes on the back as .m4a.
+- **Audio:** a system voice reads the sentence (choose it in Settings, ▶ plays a sample). The recording goes on the back as .m4a.
 - **Cloze:** tap words in the window to hide them, and the card becomes a cloze card.
 - **Dictionary:** in “Meaning” mode, tap a word and its meaning from the English Wiktionary goes on the back. Inflected forms are resolved (“Abstimmungen” → “Abstimmung”). For 1–3 selected words this happens automatically. Online, only the word is sent. Can be switched off.
 - **Listening cards:** “🎧 Listening” in the card window (or as the default in Settings). Only audio in front; sentence, translation and meanings on the back.
@@ -170,6 +170,9 @@ defaults delete com.ihonomic.clipout
 | `build.sh`, `make-dmg.sh`, `make-cert.sh`, `test.sh` | Build the app, build the .dmg, create the signing certificate, run the tests. |
 
 ## Changelog
+
+**Unreleased**
+- Choose the voice in Settings → Languages, with a sample to listen to (before, Clipout always used the best installed voice).
 
 **0.1.1**
 - Note types use English, language-neutral field names (Sentence, Translation, Audio, Image, Source, Meaning, Listening); existing fields are renamed, content stays.

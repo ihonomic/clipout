@@ -91,7 +91,11 @@ enum L10n {
         "Sprachpaket muss einmal geladen werden": "The language pack needs to be downloaded once",
         "Dieses Sprachpaar wird nicht unterstützt": "This language pair is not supported",
         "Wird geprüft…": "Checking…",
-        "Stimme: %@": "Voice: %@",
+        "Stimme": "Voice",
+        "Automatisch (beste)": "Automatic (best)",
+        "Erweitert": "Enhanced",
+        "Premium": "Premium",
+        "Probe hören": "Listen to a sample",
         "Stimmen verwalten…": "Manage voices…",
         "Bessere Stimmen: Bedienungshilfen → Gesprochene Inhalte → Systemstimme → Stimmen verwalten. Oder in den Systemeinstellungen nach „Stimme“ suchen.":
             "Better voices: Accessibility → Spoken Content → System voice → Manage voices. Or search System Settings for “voice”.",

@@ -214,6 +214,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.makeAudioKey) private var makeAudio = true
     @AppStorage(Prefs.listeningKey) private var listening = false
     @AppStorage(Prefs.dictionaryKey) private var dictionary = true
+    @AppStorage(Prefs.voiceKey) private var voice = ""
     @AppStorage(Prefs.showIconKey) private var showIcon = true
     @AppStorage(Prefs.copyFallbackKey) private var copyFallback = true
     @AppStorage(Prefs.historyLimitKey) private var historyLimit = 200
@@ -232,11 +233,21 @@ struct SettingsView: View {
             Section(L("Sprachen")) {
                 LanguageSection(translator: translator, state: state)
                 HStack {
-                    Text(L("Stimme: %@", SpeechMaker.bestVoice(for: sourceLang)?.name ?? "–"))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button(L("Stimmen verwalten…")) { VoiceSettings.open() }
+                    Picker(L("Stimme"), selection: $voice) {
+                        Text(L("Automatisch (beste)")).tag("")
+                        ForEach(SpeechMaker.voices(for: sourceLang), id: \.identifier) { v in
+                            Text(SpeechMaker.label(v)).tag(v.identifier)
+                        }
+                    }
+                    Button {
+                        VoicePreview.play(language: sourceLang)
+                    } label: {
+                        Image(systemName: "play.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L("Probe hören"))
                 }
+                Button(L("Stimmen verwalten…")) { VoiceSettings.open() }
                 Text(L("Bessere Stimmen: Bedienungshilfen → Gesprochene Inhalte → Systemstimme → Stimmen verwalten. Oder in den Systemeinstellungen nach „Stimme“ suchen."))
                     .font(.caption).foregroundStyle(.secondary)
             }

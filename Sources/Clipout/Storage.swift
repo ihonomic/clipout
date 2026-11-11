@@ -59,6 +59,7 @@ enum Prefs {
     static let ankiPortKey = "ankiPort"
     static let listeningKey = "listening"
     static let dictionaryKey = "dictionary"
+    static let voiceKey = "voice"
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
@@ -96,6 +97,8 @@ enum Prefs {
     static var listening: Bool { d.bool(forKey: listeningKey) }
     /// Look words up on en.wiktionary.org.
     static var dictionary: Bool { d.bool(forKey: dictionaryKey) }
+    /// Identifier of the chosen system voice; empty picks the best one.
+    static var voice: String { d.string(forKey: voiceKey) ?? "" }
 
     static let languages: [(code: String, name: String)] = [
         ("de", "Deutsch"), ("en", "Englisch"), ("es", "Spanisch"), ("fr", "Französisch"),

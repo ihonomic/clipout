@@ -37,7 +37,7 @@ enum SelfTest {
             "Jeden Tag von Toledo nach Madrid. Gerade als ich an der Universität angekommen war, erfuhr ich von dem Unfall.",
             language: Prefs.sourceLang, to: audio)
         let seconds = (try? AVAudioFile(forReading: audio)).map { Double($0.length) / $0.fileFormat.sampleRate } ?? 0
-        lines.append("Audio: \(spoke), lesbar \(String(format: "%.1f", seconds)) s, Stimme: \(SpeechMaker.bestVoice(for: Prefs.sourceLang)?.name ?? "-")")
+        lines.append("Audio: \(spoke), lesbar \(String(format: "%.1f", seconds)) s, Stimme: \(SpeechMaker.voice(for: Prefs.sourceLang)?.name ?? "-")")
         try? FileManager.default.removeItem(at: audio)
 
         lines.append("Bedienungshilfen erlaubt: \(SelectionReader.isTrusted)")

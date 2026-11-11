@@ -50,15 +50,33 @@ final class SpeechMaker: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    static func bestVoice(for language: String) -> AVSpeechSynthesisVoice? {
+    /// Installed voices for the language, best quality first.
+    static func voices(for language: String) -> [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.hasPrefix(language) }
-            .max { $0.quality.rawValue < $1.quality.rawValue }
+            .sorted { ($0.quality.rawValue, $1.name) > ($1.quality.rawValue, $0.name) }
+    }
+
+    /// The voice chosen in Settings if it speaks the language (it doesn't
+    /// after the language was changed), otherwise the best installed one.
+    static func voice(for language: String) -> AVSpeechSynthesisVoice? {
+        let all = voices(for: language)
+        return all.first { $0.identifier == Prefs.voice } ?? all.first
+    }
+
+    static func label(_ voice: AVSpeechSynthesisVoice) -> String {
+        // Some names already carry it, e.g. "Helena (erweitert)".
+        if voice.name.contains("(") { return voice.name }
+        switch voice.quality {
+        case .premium: return "\(voice.name) (\(L("Premium")))"
+        case .enhanced: return "\(voice.name) (\(L("Erweitert")))"
+        default: return voice.name
+        }
     }
 
     func makeAudio(_ text: String, language: String, to url: URL) async -> Bool {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = Self.bestVoice(for: language)
+        utterance.voice = Self.voice(for: language)
         var buffers: [AVAudioPCMBuffer] = []
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             var done = false
@@ -228,6 +246,32 @@ final class DictionaryLookup {
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         return Wiktionary.parse(data, language: Prefs.sourceLang)
+    }
+}
+
+/// Speaks a short sample with the chosen voice, in the language learned.
+@MainActor
+enum VoicePreview {
+    private static let synthesizer = AVSpeechSynthesizer()
+    private static let samples = [
+        "de": "Das ist meine Stimme für deine Karten.",
+        "en": "This is my voice for your cards.",
+        "es": "Esta es mi voz para tus tarjetas.",
+        "fr": "Voici ma voix pour tes cartes.",
+        "it": "Questa è la mia voce per le tue carte.",
+        "pt": "Esta é a minha voz para os teus cartões.",
+        "nl": "Dit is mijn stem voor je kaarten.",
+        "pl": "To jest mój głos dla twoich fiszek.",
+        "tr": "Bu, kartların için benim sesim.",
+        "ru": "Это мой голос для твоих карточек.",
+    ]
+
+    static func play(language: String) {
+        synthesizer.stopSpeaking(at: .immediate)
+        let voice = SpeechMaker.voice(for: language)
+        let utterance = AVSpeechUtterance(string: samples[language] ?? voice?.name ?? "Clipout")
+        utterance.voice = voice
+        synthesizer.speak(utterance)
     }
 }
 
