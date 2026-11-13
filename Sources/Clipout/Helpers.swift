@@ -74,7 +74,17 @@ final class SpeechMaker: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
+    /// The name of the voice cards get, for Settings and the self-test.
+    static func voiceName(for language: String) -> String {
+        if let piper = PiperCatalog.selected(for: language) { return "\(piper.name) · Piper" }
+        return voice(for: language).map(label) ?? "-"
+    }
+
     func makeAudio(_ text: String, language: String, to url: URL) async -> Bool {
+        if let piper = PiperCatalog.selected(for: language) {
+            guard let buffer = await PiperSpeaker.shared.speak(text, with: piper) else { return false }
+            return Self.write([buffer], to: url)
+        }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.voice(for: language)
         var buffers: [AVAudioPCMBuffer] = []
@@ -133,7 +143,8 @@ final class SpeechMaker: NSObject, AVSpeechSynthesizerDelegate {
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
                 AVSampleRateKey: format.sampleRate,
                 AVNumberOfChannelsKey: format.channelCount,
-                AVEncoderBitRateKey: 64_000,
+                // AAC refuses 64 kbit/s below 22 kHz (Piper's "low" voices speak at 16 kHz).
+                AVEncoderBitRateKey: format.sampleRate >= 22_050 ? 64_000 : 32_000,
             ]
             let file = try AVAudioFile(forWriting: url, settings: settings,
                                        commonFormat: format.commonFormat, interleaved: format.isInterleaved)
@@ -267,8 +278,29 @@ enum VoicePreview {
         "ru": "Это мой голос для твоих карточек.",
     ]
 
+    private static var player: AVAudioPlayer?
+
     static func play(language: String) {
         synthesizer.stopSpeaking(at: .immediate)
+        player?.stop()
+        if let piper = PiperCatalog.selected(for: language) {
+            Task {
+                guard let buffer = await PiperSpeaker.shared.speak(samples[language] ?? piper.name, with: piper)
+                else { return }
+                // Plain WAV: a sample needn't be small, only play at once.
+                let file = FileManager.default.temporaryDirectory.appendingPathComponent("clipout-sample.wav")
+                try? FileManager.default.removeItem(at: file)
+                do {
+                    let wav = try AVAudioFile(forWriting: file, settings: buffer.format.settings)
+                    try wav.write(from: buffer)
+                } catch {
+                    return
+                }
+                player = try? AVAudioPlayer(contentsOf: file)
+                player?.play()
+            }
+            return
+        }
         let voice = SpeechMaker.voice(for: language)
         let utterance = AVSpeechUtterance(string: samples[language] ?? voice?.name ?? "Clipout")
         utterance.voice = voice

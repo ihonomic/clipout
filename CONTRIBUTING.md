@@ -32,7 +32,7 @@ To keep the Accessibility permission across rebuilds, create a signing certifica
 ## Principles
 
 - **Everything stays on the Mac.** No accounts, tracking or analytics. The only network call is the optional Wiktionary lookup, which sends just the word.
-- **No third-party dependencies.** Only Apple's frameworks. The one exception is LAME, the MP3 encoder: macOS can't write MP3, and AnkiWeb plays nothing else. It is built from the official, checksum-verified source by `make-lame.sh` and linked in.
+- **No third-party dependencies.** Only Apple's frameworks, with two exceptions: LAME, the MP3 encoder (macOS can't write MP3, and AnkiWeb plays nothing else), and sherpa-onnx for the Piper voices. Both are fetched checksum-verified by `make-lame.sh` and `make-sherpa.sh` and linked in statically. Because sherpa-onnx contains espeak-ng (GPL-3), the built app is GPL-3; your contribution to the source is MIT.
 - **Privacy first.** Clipboard data is encrypted on disk, and secrets are never stored. Changes to this need a very good reason.
 - **Any language pair.** Don't assume German or English; field names and card templates stay language-neutral.
 

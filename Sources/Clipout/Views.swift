@@ -207,6 +207,7 @@ struct SettingsView: View {
     @ObservedObject var translator: Translator
     @ObservedObject var patterns: PatternStore
     @ObservedObject private var state = SettingsState()
+    @ObservedObject private var piper = PiperDownloads.shared
 
     @AppStorage(L10n.key) private var appLanguage = L10n.language
     @AppStorage(Prefs.deckKey) private var deck = "Clipout"
@@ -236,10 +237,14 @@ struct SettingsView: View {
                 HStack {
                     Picker(L("Stimme"), selection: $voice) {
                         Text(L("Automatisch (beste)")).tag("")
+                        ForEach(PiperCatalog.voices(for: sourceLang).filter(\.isInstalled)) { v in
+                            Text("\(v.name) · Piper").tag(v.tag)
+                        }
                         ForEach(SpeechMaker.voices(for: sourceLang), id: \.identifier) { v in
                             Text(SpeechMaker.label(v)).tag(v.identifier)
                         }
                     }
+                    .id(piper.revision)
                     Button {
                         VoicePreview.play(language: sourceLang)
                     } label: {
@@ -250,6 +255,19 @@ struct SettingsView: View {
                 }
                 Button(L("Stimmen verwalten…")) { VoiceSettings.open() }
                 Text(L("Bessere Stimmen: Bedienungshilfen → Gesprochene Inhalte → Systemstimme → Stimmen verwalten. Oder in den Systemeinstellungen nach „Stimme“ suchen."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("Neuronale Stimmen (Piper)")) {
+                ForEach(PiperCatalog.voices(for: sourceLang)) { v in
+                    PiperRow(voice: v, downloads: piper)
+                }
+                if PiperCatalog.voices(for: sourceLang).isEmpty {
+                    Text(L("Für diese Sprache gibt es noch keine Piper-Stimme.")).foregroundStyle(.secondary)
+                }
+                if let error = piper.error {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+                Text(L("Natürlich klingende Stimmen, offline. Einmal herunterladen (von GitHub, mit Prüfsumme); jede Stimme hat ihre eigene Lizenz (MODEL_CARD im Ordner der Stimme)."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Anki") {
@@ -443,5 +461,34 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Image(systemName: anki.isUp ? "rectangle.and.text.magnifyingglass" : "rectangle.dashed")
+    }
+}
+
+/// One Piper voice in Settings: download, progress, or delete.
+struct PiperRow: View {
+    let voice: PiperVoice
+    @ObservedObject var downloads: PiperDownloads
+
+    var body: some View {
+        LabeledContent {
+            if let done = downloads.progress[voice.id] {
+                ProgressView(value: done).frame(width: 120)
+            } else if voice.isInstalled {
+                Button(role: .destructive) { downloads.remove(voice) } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .help(L("Stimme löschen"))
+            } else {
+                Button(L("Laden (%@)", ByteCountFormatter.string(fromByteCount: Int64(voice.bytes), countStyle: .file))) {
+                    downloads.install(voice)
+                }
+            }
+        } label: {
+            Text(voice.name)
+            Text(voice.id).font(.caption).foregroundStyle(.secondary)
+        }
+        // No .id(revision) here: every row got the same identity, and the
+        // list showed one voice three times.
     }
 }

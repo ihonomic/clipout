@@ -22,6 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { await AudioRepair.run() }
                 return
             }
+            if let i = CommandLine.arguments.firstIndex(of: "--install-voice") {
+                let id = CommandLine.arguments.dropFirst(i + 1).first ?? ""
+                Task { await PiperDownloads.shared.installFromCommandLine(id) }
+                return
+            }
             if CommandLine.arguments.contains("--convert-audio") {
                 Task { await AudioConvert.run() }
                 return

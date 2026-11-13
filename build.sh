@@ -11,6 +11,8 @@ cd "$(dirname "$0")"
 
 # MP3 encoder (LAME, LGPL), linked in: AnkiWeb plays only MP3.
 [[ -f .build/lame/libmp3lame.a ]] || ./make-lame.sh
+# Piper voices (sherpa-onnx with espeak-ng, GPL-3), linked in.
+[[ -f .build/sherpa/lib/libsherpa-onnx-c-api.a ]] || ./make-sherpa.sh
 
 # Universal binary: runs on Apple Silicon and Intel Macs.
 ARCHS=(--arch arm64 --arch x86_64)
@@ -35,6 +37,7 @@ if [[ ! -f "$ICON" || Resources/make-icon.swift -nt "$ICON" ]]; then
 fi
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 cp .build/lame/LAME-COPYING.txt "$APP/Contents/Resources/LAME-COPYING.txt"
+cp .build/sherpa/licenses/*.txt "$APP/Contents/Resources/"
 if [[ -z "${SIGN_IDENTITY:-}" ]]; then
     if security find-identity -p codesigning 2>/dev/null | grep -q '"Clipout Dev"'; then
         SIGN_IDENTITY="Clipout Dev"

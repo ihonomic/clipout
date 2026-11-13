@@ -63,7 +63,7 @@ Needs macOS 26 or later (Apple Silicon or Intel) and [Anki](https://apps.ankiweb
 - **⌥⌘A:** sends the selection as a card right away, without a window.
 - **Clipboard history:** the menu bar icon lists everything you copied, text and images. Every row has a “+ Anki” button.
 - **Translation:** Apple's on-device translation, offline and free.
-- **Audio:** a system voice reads the sentence (choose it in Settings, ▶ plays a sample). The recording goes on the back as MP3, which plays everywhere: Anki on Mac, AnkiDroid, AnkiMobile and AnkiWeb. M4A is still available in Settings, but AnkiWeb doesn't play it.
+- **Audio:** a voice reads the sentence (choose it in Settings, ▶ plays a sample): one of the macOS system voices, or a natural-sounding **Piper voice** such as “Thorsten” for German. Piper voices run offline too; Settings → Neural voices downloads one (27–116 MB, checksum verified). The recording goes on the back as MP3, which plays everywhere: Anki on Mac, AnkiDroid, AnkiMobile and AnkiWeb. M4A is still available in Settings, but AnkiWeb doesn't play it.
 - **Cloze:** tap words in the window to hide them, and the card becomes a cloze card.
 - **Dictionary:** in “Meaning” mode, tap a word and its meaning from the English Wiktionary goes on the back. Inflected forms are resolved (“Abstimmungen” → “Abstimmung”). For 1–3 selected words this happens automatically. Online, only the word is sent. Can be switched off.
 - **Listening cards:** “🎧 Listening” in the card window (or as the default in Settings). Only audio in front; sentence, translation and meanings on the back.
@@ -86,7 +86,7 @@ Needs macOS 26 or later (Apple Silicon or Intel) and [Anki](https://apps.ankiweb
 - macOS 26 or later
 - Anki with the [AnkiConnect](https://ankiweb.net/shared/info/2055492159) add-on
 - Swift (the Command Line Tools are enough, Xcode is not needed)
-- For building: an internet connection the first time. `build.sh` downloads and builds [LAME](https://lame.sourceforge.io) 3.100, the MP3 encoder (checksum verified).
+- For building: an internet connection the first time. `build.sh` downloads and builds [LAME](https://lame.sourceforge.io) 3.100, the MP3 encoder, and downloads [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 1.13.8, which runs the Piper voices (both checksum verified).
 
 ## Build and run
 
@@ -152,6 +152,7 @@ Everything Clipout keeps lives in `~/Library/Application Support/Clipout` (reada
 | `queue.sealed` | cards waiting for Anki |
 | `patterns.sealed` | your own “never store” patterns |
 | `media/` | audio and images briefly, until Anki has them |
+| `voices/` | Piper voices you downloaded (not encrypted: they are public models) |
 
 ## Structure
 
@@ -160,11 +161,13 @@ Everything Clipout keeps lives in `~/Library/Application Support/Clipout` (reada
 | `Sources/ClipoutCore` | Logic without UI: building cards, cloze, history and expiry, secret detection and custom patterns, Wiktionary parsing, AnkiConnect messages. Tested in `Tests/`. |
 | `Sources/Clipout` | The app: menu bar, reading the selection, floating button, windows, translation, audio, Anki queue, encrypted storage. |
 | `Resources` | `Info.plist`, entitlements and `make-icon.swift`, which draws the app icon. |
-| `build.sh`, `make-dmg.sh`, `make-cert.sh`, `make-lame.sh`, `test.sh` | Build the app, build the .dmg, create the signing certificate, build the MP3 encoder, run the tests. |
+| `Sources/CSherpaOnnx` | The C interface of sherpa-onnx (Apache-2.0), for the Piper voices. |
+| `build.sh`, `make-dmg.sh`, `make-cert.sh`, `make-lame.sh`, `make-sherpa.sh`, `test.sh` | Build the app, build the .dmg, create the signing certificate, build the MP3 encoder, fetch the speech engine, run the tests. |
 
 ## Changelog
 
 **Unreleased**
+- Natural-sounding Piper voices (e.g. “Thorsten” for German), offline: Settings → Neural voices. The built app is now distributed under the GPL-3, see License.
 - Choose the voice in Settings → Languages, with a sample to listen to (before, Clipout always used the best installed voice).
 - Audio is saved as MP3, so it plays on AnkiWeb too (AnkiWeb plays only MP3).
 - Fixed: cards named their audio in uppercase while Anki stores it in lowercase. The Mac didn't mind, but AnkiWeb found no file and showed no play button.
@@ -185,5 +188,17 @@ Everything Clipout keeps lives in `~/Library/Application Support/Clipout` (reada
 ## License
 
 [MIT](LICENSE) © 2026 Ihonosetale Oseghale. Contributions are welcome under the same license, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**The built app (Clipout.app, Clipout.dmg) is distributed under the [GPL-3](https://www.gnu.org/licenses/gpl-3.0.html)**, because it contains espeak-ng, which the Piper voices need to turn text into sounds. Clipout's own source code stays MIT. The app contains:
+
+| Component | License |
+|---|---|
+| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 1.13.8 | Apache-2.0 |
+| [espeak-ng](https://github.com/espeak-ng/espeak-ng) (inside sherpa-onnx) | GPL-3.0 or later |
+| [piper-phonemize](https://github.com/rhasspy/piper-phonemize) | MIT |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | MIT |
+| [LAME](https://lame.sourceforge.io) 3.100 | LGPL-2.0 or later |
+
+Their license texts are in `Clipout.app/Contents/Resources`. Piper voices are not part of Clipout: you download them yourself, and each has its own license (see `MODEL_CARD` in `~/Library/Application Support/Clipout/voices/<voice>`).
 
 Clipout includes [LAME](https://lame.sourceforge.io) 3.100 (LGPL 2.0 or later) to write MP3, built unmodified from the official, checksum-verified source by `make-lame.sh` and linked into the app. Its license is in `Clipout.app/Contents/Resources/LAME-COPYING.txt`. To use your own build of LAME, put your `libmp3lame.a` into `.build/lame/` and run `./build.sh`.
