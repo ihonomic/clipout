@@ -168,12 +168,12 @@ How the parts work together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITEC
 
 ## Changelog
 
-**Unreleased**
+**0.2.0**
 - Natural-sounding Piper voices (e.g. “Thorsten” for German), offline: Settings → Neural voices. The built app is now distributed under the GPL-3, see License.
 - Choose the voice in Settings → Languages, with a sample to listen to (before, Clipout always used the best installed voice).
 - Audio is saved as MP3, so it plays on AnkiWeb too (AnkiWeb plays only MP3).
 - Fixed: cards named their audio in uppercase while Anki stores it in lowercase. The Mac didn't mind, but AnkiWeb found no file and showed no play button.
-- Existing cards: `build/Clipout.app/Contents/MacOS/Clipout --convert-audio` (Anki open) fixes both: it turns .m4a into MP3 without changing the sound and corrects the file names. Then sync; Anki's Tools → Check Media removes the old files.
+- Existing cards: `/Applications/Clipout.app/Contents/MacOS/Clipout --convert-audio` in Terminal (Anki open) fixes both: it turns .m4a into MP3 without changing the sound and corrects the file names. Then sync; Anki's Tools → Check Media removes the old files.
 
 **0.1.1**
 - Note types use English, language-neutral field names (Sentence, Translation, Audio, Image, Source, Meaning, Listening); existing fields are renamed, content stays.
