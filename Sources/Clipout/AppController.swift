@@ -160,7 +160,8 @@ final class AppController: ObservableObject {
         var draft = draft
         var media: [String] = []
         if audio {
-            let name = "clipout-\(UUID().uuidString).m4a"
+            // Lowercase: the name Anki will store it under anyway.
+            let name = "clipout-\(UUID().uuidString.lowercased()).\(Prefs.audioExtension)"
             if await speech.makeAudio(Sentence.clean(draft.sentence), language: Prefs.sourceLang,
                                       to: Paths.media.appendingPathComponent(name)) {
                 draft.audioFile = name
@@ -168,7 +169,7 @@ final class AppController: ObservableObject {
             }
         }
         if let image {
-            let name = "clipout-\(UUID().uuidString).png"
+            let name = "clipout-\(UUID().uuidString.lowercased()).png"
             if (try? FileManager.default.copyItem(at: image, to: Paths.media.appendingPathComponent(name))) != nil {
                 draft.imageFile = name
                 media.append(name)

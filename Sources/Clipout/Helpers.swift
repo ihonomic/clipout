@@ -33,8 +33,8 @@ final class Translator: ObservableObject {
     }
 }
 
-/// Reads the sentence aloud with the best installed system voice and saves it
-/// as .m4a for the back of the card.
+/// Reads the sentence aloud with the chosen system voice and saves it for the
+/// card: MP3 or AAC (.m4a), after the file name's extension.
 ///
 /// The voice's buffers are first collected in memory and the file is written
 /// in one go once speaking has finished. Writing while the voice was still
@@ -122,8 +122,9 @@ final class SpeechMaker: NSObject, AVSpeechSynthesizerDelegate {
         return copy
     }
 
-    /// Writes AAC (.m4a) and checks that the file can be read back.
-    private static func write(_ buffers: [AVAudioPCMBuffer], to url: URL) -> Bool {
+    /// Writes MP3 or AAC (.m4a) and checks that the file can be read back.
+    static func write(_ buffers: [AVAudioPCMBuffer], to url: URL) -> Bool {
+        if url.pathExtension == "mp3" { return MP3Encoder.write(buffers, to: url) }
         let format = buffers[0].format
         try? FileManager.default.removeItem(at: url)
         do {

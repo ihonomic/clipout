@@ -60,6 +60,7 @@ enum Prefs {
     static let listeningKey = "listening"
     static let dictionaryKey = "dictionary"
     static let voiceKey = "voice"
+    static let audioFormatKey = "audioFormat"
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
@@ -75,6 +76,7 @@ enum Prefs {
             ankiPortKey: 8765,
             listeningKey: false,
             dictionaryKey: true,
+            audioFormatKey: "mp3",
         ])
     }
 
@@ -99,6 +101,8 @@ enum Prefs {
     static var dictionary: Bool { d.bool(forKey: dictionaryKey) }
     /// Identifier of the chosen system voice; empty picks the best one.
     static var voice: String { d.string(forKey: voiceKey) ?? "" }
+    /// "mp3" plays everywhere, AnkiWeb included; "m4a" is Apple's AAC.
+    static var audioExtension: String { d.string(forKey: audioFormatKey) == "m4a" ? "m4a" : "mp3" }
 
     static let languages: [(code: String, name: String)] = [
         ("de", "Deutsch"), ("en", "Englisch"), ("es", "Spanisch"), ("fr", "Französisch"),

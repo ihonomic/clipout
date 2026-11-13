@@ -9,6 +9,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# MP3 encoder (LAME, LGPL), linked in: AnkiWeb plays only MP3.
+[[ -f .build/lame/libmp3lame.a ]] || ./make-lame.sh
+
 # Universal binary: runs on Apple Silicon and Intel Macs.
 ARCHS=(--arch arm64 --arch x86_64)
 swift build -c release "${ARCHS[@]}"
@@ -31,6 +34,7 @@ if [[ ! -f "$ICON" || Resources/make-icon.swift -nt "$ICON" ]]; then
     iconutil -c icns "$SET" -o "$ICON"
 fi
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
+cp .build/lame/LAME-COPYING.txt "$APP/Contents/Resources/LAME-COPYING.txt"
 if [[ -z "${SIGN_IDENTITY:-}" ]]; then
     if security find-identity -p codesigning 2>/dev/null | grep -q '"Clipout Dev"'; then
         SIGN_IDENTITY="Clipout Dev"
@@ -47,5 +51,7 @@ echo "Fertig: $APP"
 
 if [[ "${1:-}" == "--open" ]]; then
     pkill -x Clipout 2>/dev/null || true
+    # `open` right after pkill fails with -600 while the old process exits.
+    for _ in {1..50}; do pgrep -x Clipout >/dev/null || break; sleep 0.1; done
     open "$APP"
 fi

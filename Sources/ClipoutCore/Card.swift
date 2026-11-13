@@ -44,6 +44,14 @@ public struct AnkiNote: Codable, Equatable, Sendable {
     public var fields: [String: String]
     public var options = Options()
     public var tags: [String]
+
+    /// The note with a media file name replaced, for when Anki stores the
+    /// file under another name than the one asked for.
+    public func renamingMedia(_ old: String, to new: String) -> AnkiNote {
+        var note = self
+        note.fields = fields.mapValues { $0.replacingOccurrences(of: old, with: new) }
+        return note
+    }
 }
 
 /// The two note types Clipout creates in Anki. Field names are English so

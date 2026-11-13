@@ -279,3 +279,13 @@ func languageTextIsNotASecret(_ text: String) {
     #expect(note.fields["Listening"] == "yes" && note.fields["Translation"] == "b")
     #expect(old.migrated(clozeModel: "Clipout Lücke").modelName == "Clipout Lücke")
 }
+
+@Test func mediaRenameFollowsAnki() {
+    // AnkiConnect stores "clipout-AB.mp3" as "clipout-ab.mp3"; the note has to say so too.
+    let note = AnkiNote(deckName: "D", modelName: "Clipout",
+                        fields: ["Audio": "[sound:clipout-AB.mp3]", "Image": "<img src=\"clipout-CD.png\">"],
+                        tags: ["clipout"])
+    let renamed = note.renamingMedia("clipout-AB.mp3", to: "clipout-ab.mp3")
+    #expect(renamed.fields["Audio"] == "[sound:clipout-ab.mp3]")
+    #expect(renamed.fields["Image"] == note.fields["Image"])
+}

@@ -32,12 +32,12 @@ enum SelfTest {
         }
 
         // Several sentences: enhanced voices deliver them in several buffers.
-        let audio = Paths.root.appendingPathComponent("selftest.m4a")
+        let audio = Paths.root.appendingPathComponent("selftest.\(Prefs.audioExtension)")
         let spoke = await controller.speech.makeAudio(
             "Jeden Tag von Toledo nach Madrid. Gerade als ich an der Universität angekommen war, erfuhr ich von dem Unfall.",
             language: Prefs.sourceLang, to: audio)
         let seconds = (try? AVAudioFile(forReading: audio)).map { Double($0.length) / $0.fileFormat.sampleRate } ?? 0
-        lines.append("Audio: \(spoke), lesbar \(String(format: "%.1f", seconds)) s, Stimme: \(SpeechMaker.voice(for: Prefs.sourceLang)?.name ?? "-")")
+        lines.append("Audio (\(audio.pathExtension)): \(spoke), lesbar \(String(format: "%.1f", seconds)) s, Stimme: \(SpeechMaker.voice(for: Prefs.sourceLang)?.name ?? "-")")
         try? FileManager.default.removeItem(at: audio)
 
         lines.append("Bedienungshilfen erlaubt: \(SelectionReader.isTrusted)")
@@ -131,5 +131,80 @@ enum AudioRepair {
         print("Audio neu erzeugt: \(repaired) von \(notes.count) Clipout-Karten")
         fflush(stdout)
         exit(0)
+    }
+}
+
+/// `Clipout --convert-audio`: makes existing Clipout notes play on AnkiWeb.
+/// - .m4a audio becomes MP3 (AnkiWeb plays only MP3). The sound is decoded
+///   and re-encoded, not spoken again, so it stays exactly as it was.
+/// - File names in the notes are lowercased: AnkiConnect stores media in
+///   lowercase, older Clipout versions wrote the name in uppercase, and
+///   AnkiWeb, unlike the Mac, doesn't find the file then.
+/// Anki's Tools → Check Media removes the old .m4a files afterwards.
+@MainActor
+enum AudioConvert {
+    static func run() async {
+        Prefs.registerDefaults()
+        Paths.ensure()
+        let client = AnkiClient(port: Prefs.ankiPort)
+        struct Info: Decodable {
+            struct F: Decodable { let value: String }
+            let noteId: Int
+            let fields: [String: F]
+        }
+        struct Update: Encodable {
+            struct Note: Encodable { let id: Int; let fields: [String: String] }
+            let note: Note
+        }
+        let ids = ((try? await client.call("findNotes", ["query": "tag:clipout"], as: [Int].self)) ?? nil) ?? []
+        let notes = ((try? await client.call("notesInfo", ["notes": ids], as: [Info].self)) ?? nil) ?? []
+        var converted = 0, renamed = 0, failed = 0
+        for note in notes {
+            var fields: [String: String] = [:]
+            for key in ["Audio", "Image"] {
+                guard let value = note.fields[key]?.value, value.contains("clipout-") else { continue }
+                // Anki already holds these files under the lowercase name.
+                if value != value.lowercased() { fields[key] = value.lowercased() }
+            }
+            let audio = fields["Audio"] ?? note.fields["Audio"]?.value ?? ""
+            if audio.hasPrefix("[sound:"), audio.hasSuffix(".m4a]") {
+                let old = String(audio.dropFirst(7).dropLast())
+                guard let new = await mp3(from: old, client: client) else { failed += 1; continue }
+                fields["Audio"] = "[sound:\(new)]"
+                converted += 1
+            }
+            guard !fields.isEmpty else { continue }
+            do {
+                _ = try await client.call("updateNoteFields", Update(note: .init(id: note.noteId, fields: fields)),
+                                          as: Ignored.self)
+                if fields.count > (audio.hasSuffix(".m4a]") ? 1 : 0) { renamed += 1 }
+            } catch {
+                print("Notiz \(note.noteId): \(error)")
+                failed += 1
+            }
+        }
+        print("In MP3 umgewandelt: \(converted), Dateinamen korrigiert: \(renamed), fehlgeschlagen: \(failed), Clipout-Karten insgesamt: \(notes.count)")
+        fflush(stdout)
+        exit(0)
+    }
+
+    /// Fetches `name` from Anki, stores it as MP3 and returns the stored name.
+    private static func mp3(from name: String, client: AnkiClient) async -> String? {
+        let new = (name as NSString).deletingPathExtension + ".mp3"
+        let oldURL = Paths.media.appendingPathComponent(name)
+        let newURL = Paths.media.appendingPathComponent(new)
+        defer {
+            try? FileManager.default.removeItem(at: oldURL)
+            try? FileManager.default.removeItem(at: newURL)
+        }
+        guard let base64 = (try? await client.call("retrieveMediaFile", ["filename": name],
+                                                    as: String.self, timeout: 30)) ?? nil,
+              let data = Data(base64Encoded: base64),
+              (try? data.write(to: oldURL)) != nil,
+              let buffers = MP3Encoder.buffers(from: oldURL),
+              MP3Encoder.write(buffers, to: newURL),
+              let mp3 = try? Data(contentsOf: newURL) else { return nil }
+        return (try? await client.call("storeMediaFile", ["filename": new, "data": mp3.base64EncodedString()],
+                                       as: String.self, timeout: 30)) ?? nil
     }
 }

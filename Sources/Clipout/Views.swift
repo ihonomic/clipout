@@ -215,6 +215,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.listeningKey) private var listening = false
     @AppStorage(Prefs.dictionaryKey) private var dictionary = true
     @AppStorage(Prefs.voiceKey) private var voice = ""
+    @AppStorage(Prefs.audioFormatKey) private var audioFormat = "mp3"
     @AppStorage(Prefs.showIconKey) private var showIcon = true
     @AppStorage(Prefs.copyFallbackKey) private var copyFallback = true
     @AppStorage(Prefs.historyLimitKey) private var historyLimit = 200
@@ -255,6 +256,10 @@ struct SettingsView: View {
                 TextField(L("Deck"), text: $deck)
                 TextField(L("AnkiConnect-Port"), value: $ankiPort, format: .number.grouping(.never))
                 Toggle(L("Audio für jede Karte erzeugen"), isOn: $makeAudio)
+                Picker(L("Audioformat"), selection: $audioFormat) {
+                    Text(L("MP3 – läuft überall, auch auf AnkiWeb")).tag("mp3")
+                    Text(L("M4A (AAC) – nicht auf AnkiWeb")).tag("m4a")
+                }
                 Toggle("🎧 " + L("Neue Karten als Hörkarten"), isOn: $listening)
             }
             Section(L("Wörterbuch")) {

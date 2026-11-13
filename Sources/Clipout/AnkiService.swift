@@ -121,9 +121,13 @@ final class AnkiService: ObservableObject {
                 for name in card.media {
                     let url = Paths.media.appendingPathComponent(name)
                     guard let data = try? Data(contentsOf: url) else { continue }
-                    _ = try await client.call("storeMediaFile",
-                                              ["filename": name, "data": data.base64EncodedString()],
-                                              as: Ignored.self, timeout: 30)
+                    // AnkiConnect stores the name in lowercase and says so. The
+                    // Mac doesn't mind the difference, but AnkiWeb then finds
+                    // no file and shows no play button.
+                    let stored = try await client.call("storeMediaFile",
+                                                       ["filename": name, "data": data.base64EncodedString()],
+                                                       as: String.self, timeout: 30)
+                    if let stored, stored != name { card.note = card.note.renamingMedia(name, to: stored) }
                 }
                 _ = try await client.call("addNote", ["note": card.note], as: Int.self)
                 finish(card, .sent)

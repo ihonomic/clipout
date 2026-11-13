@@ -22,6 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { await AudioRepair.run() }
                 return
             }
+            if CommandLine.arguments.contains("--convert-audio") {
+                Task { await AudioConvert.run() }
+                return
+            }
             if CommandLine.arguments.contains("--selftest") {
                 Task { await SelfTest.run() }
                 return
