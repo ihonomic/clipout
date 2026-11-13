@@ -156,6 +156,8 @@ Everything Clipout keeps lives in `~/Library/Application Support/Clipout` (reada
 
 ## Structure
 
+How the parts work together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 | Folder | Contents |
 |---|---|
 | `Sources/ClipoutCore` | Logic without UI: building cards, cloze, history and expiry, secret detection and custom patterns, Wiktionary parsing, AnkiConnect messages. Tested in `Tests/`. |
