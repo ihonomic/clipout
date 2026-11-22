@@ -5,15 +5,18 @@ import SwiftUI
 import Translation
 
 /// The window under the menu bar icon: Anki status and clipboard history.
+/// `embedded`: the left side of the main window, which fills its space.
 struct MenuView: View {
     @ObservedObject var controller: AppController
+    var embedded = false
     @ObservedObject var anki: AnkiService
     @ObservedObject var clips: ClipboardMonitor
     @ObservedObject var translator: Translator
     @AppStorage(L10n.key) private var appLanguage = L10n.language
 
-    init(controller: AppController) {
+    init(controller: AppController, embedded: Bool = false) {
         self.controller = controller
+        self.embedded = embedded
         anki = controller.anki
         clips = controller.clips
         translator = controller.translator
@@ -35,7 +38,7 @@ struct MenuView: View {
             if clips.items.isEmpty {
                 Text(L("Noch nichts kopiert. Kopiere Text oder ein Bild (⌘C) – es erscheint hier."))
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 120)
+                    .frame(maxWidth: .infinity, minHeight: 120, maxHeight: embedded ? .infinity : nil)
                     .multilineTextAlignment(.center)
                     .padding()
             } else {
@@ -47,12 +50,13 @@ struct MenuView: View {
                         }
                     }
                 }
-                .frame(height: 380)
+                .frame(height: embedded ? nil : 380)
+                .frame(maxHeight: embedded ? .infinity : nil)
             }
             Divider()
             footer.padding(10)
         }
-        .frame(width: 380)
+        .frame(width: embedded ? nil : 380)
         .id(appLanguage)   // rebuild every text when the app language changes
     }
 
@@ -81,9 +85,15 @@ struct MenuView: View {
             Button(L("Verlauf leeren")) { clips.clear() }
                 .disabled(clips.items.isEmpty)
             Spacer()
+            if !embedded {
+                Button { controller.openMain() } label: { Image(systemName: "macwindow") }
+                    .help(L("Clipout-Fenster öffnen"))
+            }
             Button { controller.openSettings() } label: { Image(systemName: "gearshape") }
                 .help(L("Einstellungen"))
-            Button(L("Beenden")) { NSApp.terminate(nil) }
+            if !embedded {
+                Button(L("Beenden")) { NSApp.terminate(nil) }
+            }
         }
         .controlSize(.small)
     }

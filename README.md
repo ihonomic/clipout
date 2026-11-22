@@ -59,6 +59,8 @@ Needs macOS 26 or later (Apple Silicon or Intel) and [Anki](https://apps.ankiweb
 
 ## Features
 
+- **Main window with two sides:** opens when you start Clipout (and from the menu bar icon). Left: what you copy or select, as described below. Right: writing corrections.
+- **Writing corrections → Anki:** have an AI correct your text with the prompt from “Copy prompt”, paste its answer, check the preview and send. Every correction becomes a card where you type the right form (one note per sentence, one gap per correction); the back shows your original sentence, the tip and the corrected sentence read aloud. Tags record the kind of mistake and the date, so `tag:WordOrder tag:2026-11*` in Anki shows how often you made it that month.
 - **Button next to a selection:** after you select text, a small “+ Anki” appears next to it. Clicking it opens the “New card” window.
 - **⌥⌘A:** sends the selection as a card right away, without a window.
 - **Clipboard history:** the menu bar icon lists everything you copied, text and images. Every row has a “+ Anki” button.
@@ -167,6 +169,9 @@ How the parts work together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITEC
 | `build.sh`, `make-dmg.sh`, `make-cert.sh`, `make-lame.sh`, `make-sherpa.sh`, `test.sh` | Build the app, build the .dmg, create the signing certificate, build the MP3 encoder, fetch the speech engine, run the tests. |
 
 ## Changelog
+
+**Unreleased**
+- Main window with two sides: copy → Anki, and writing corrections → Anki with a typed answer per correction.
 
 **0.2.0**
 - Natural-sounding Piper voices (e.g. “Thorsten” for German), offline: Settings → Neural voices. The built app is now distributed under the GPL-3, see License.

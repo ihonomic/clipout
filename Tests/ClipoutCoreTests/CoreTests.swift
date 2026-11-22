@@ -289,3 +289,50 @@ func languageTextIsNotASecret(_ text: String) {
     #expect(renamed.fields["Audio"] == "[sound:clipout-ab.mp3]")
     #expect(renamed.fields["Image"] == note.fields["Image"])
 }
+
+// MARK: - Writing corrections
+
+@Test func correctionRowsAreReadFromWhatTheAIReturns() {
+    let input = """
+    ```
+    #separator:tab
+    {{c1::In dieser Sendung geht es::this show is about · Sendung + es geht um}} um einen Mann.\tOriginal: Dieser Sendung geht um eine Mann.<br>Tipp: „In dieser Sendung geht es um …“\tIn dieser Sendung geht es um einen Mann.\tAusdruck 2026-10-08
+    {{c1::Als sie nach Deutschland zurückkam::when she came back · Verb am Ende}}, {{c2::hat sie::she did · Verb an Position 2}} entschieden.\tOriginal: Als sie kam zurück, sie entschieden.\t\tWortstellung Wortstellung
+    ```
+    """
+    let (rows, problems) = Corrections.parse(input)
+    #expect(problems.isEmpty)
+    #expect(rows.count == 2)
+    #expect(rows[0].sentence == "In dieser Sendung geht es um einen Mann.")
+    #expect(rows[0].tags == ["Ausdruck", "2026-10-08"])
+    #expect(rows[0].cardCount == 1)
+    // An empty sentence column is filled from the gaps.
+    #expect(rows[1].sentence == "Als sie nach Deutschland zurückkam, hat sie entschieden.")
+    #expect(rows[1].cardCount == 2)
+    #expect(Corrections.gaps(in: rows[0].text).first?.hint == "this show is about · Sendung + es geht um")
+}
+
+@Test func correctionLinesThatCantBeReadAreReported() {
+    let input = """
+    {{c1::geht es}} um Heiko    Original: geht um    Tipp
+    Ein Satz ohne Lücke\tOriginal: …
+    {{c1::kaputt}\tOriginal: …
+    """
+    let (rows, problems) = Corrections.parse(input)
+    #expect(rows.isEmpty)
+    // Tabs turned into spaces, no gap, broken braces.
+    #expect(problems.map(\.reason) == [.missingColumns, .noGap, .brokenGap])
+    #expect(problems.map(\.line) == [1, 2, 3])
+}
+
+@Test func correctionNoteEscapesHTMLButKeepsLineBreaks() {
+    let row = CorrectionRow(text: "Er sagte {{c1::„ja“}} <script>x</script>",
+                            backExtra: "Original: Er sagte ja<br/>Tipp: <b>Zitat</b> <img src=x onerror=alert(1)>",
+                            sentence: "Er sagte „ja“", tags: ["Ausdruck"])
+    let note = Corrections.note(for: row, deck: "Deutsch::Korrekturen", audioFile: "clipout-a.mp3")
+    #expect(note.modelName == CardModels.correction)
+    #expect(note.fields["Text"] == "Er sagte {{c1::„ja“}} &lt;script&gt;x&lt;/script&gt;")
+    #expect(note.fields["Back Extra"] == "Original: Er sagte ja<br>Tipp: <b>Zitat</b> &lt;img src=x onerror=alert(1)&gt;")
+    #expect(note.fields["Audio"] == "[sound:clipout-a.mp3]")
+    #expect(note.tags == ["clipout", "Ausdruck"])
+}

@@ -62,6 +62,8 @@ public struct AnkiNote: Codable, Equatable, Sendable {
 public enum CardModels {
     public static let basic = "Clipout"
     public static let cloze = "Clipout Cloze"
+    /// Writing corrections: a typed answer per gap (see Corrections).
+    public static let correction = "Clipout Correction"
     /// Name used by 0.1.x; Anki can't rename note types over AnkiConnect,
     /// so an existing one keeps being used.
     public static let legacyCloze = "Clipout Lücke"
@@ -117,6 +119,28 @@ public enum CardModels {
     {{#Image}}<div>{{Image}}</div>{{/Image}}
     <hr id=answer>
     """ + "\n" + backExtras
+
+    /// Writing corrections. "Back Extra" holds your original and the tip,
+    /// "Sentence" the corrected sentence the audio reads. You type each gap:
+    /// recalling the right form is the point, so the original stays on the back.
+    public static let correctionFields = ["Text", "Back Extra", "Sentence", "Audio"]
+    public static let correctionCSS = css + """
+
+    .extra { color: #666; font-size: 17px; text-align: left; max-width: 640px; margin: 14px auto 0; }
+    .nightMode .extra, .night_mode .extra { color: #aaa; }
+    #typeans { font-size: 22px; }
+    """
+    public static let correctionFront = """
+    <div class="sentence">{{cloze:Text}}</div>
+    {{type:cloze:Text}}
+    """
+    public static let correctionBack = """
+    <div class="sentence">{{cloze:Text}}</div>
+    {{type:cloze:Text}}
+    <hr id=answer>
+    {{#Back Extra}}<div class="extra">{{Back Extra}}</div>{{/Back Extra}}
+    {{Audio}}
+    """
 
     static func isWebLink(_ url: String) -> Bool {
         guard let scheme = URL(string: url)?.scheme?.lowercased() else { return false }

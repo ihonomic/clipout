@@ -13,6 +13,7 @@ final class AppController: ObservableObject {
     let speech = SpeechMaker()
     let dictionary = DictionaryLookup()
     let patterns = PatternStore()
+    let corrections = CorrectionModel()
     private let watcher = SelectionWatcher()
     private var hotKey: HotKey?
 
@@ -26,6 +27,7 @@ final class AppController: ObservableObject {
     private var windows: [NSWindow] = []
     private var settingsWindow: NSWindow?
     private var welcomeWindow: NSWindow?
+    private var mainWindow: NSWindow?
     private static let welcomedKey = "welcomed"
 
     func start() {
@@ -43,6 +45,7 @@ final class AppController: ObservableObject {
         }
         watcher.start()
         hotKey = HotKey { [weak self] in Task { await self?.quickSend() } }
+        openMain()
         if !UserDefaults.standard.bool(forKey: Self.welcomedKey) { openWelcome() }
 
         // The permission can be granted while the app runs.
@@ -189,6 +192,26 @@ final class AppController: ObservableObject {
         updateSettingsTitle()
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// The main window with both sides. While it is open Clipout is an
+    /// ordinary app (Dock, ⌘Tab); without it, it lives in the menu bar only.
+    func openMain() {
+        if mainWindow == nil {
+            let window = makeWindow(title: "Clipout", size: NSSize(width: 1000, height: 660),
+                                    content: MainView(controller: self))
+            window.level = .normal
+            window.styleMask.insert(.miniaturizable)
+            window.setFrameAutosaveName("ClipoutMain")
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window,
+                                                   queue: .main) { _ in
+                NSApp.setActivationPolicy(.accessory)
+            }
+            mainWindow = window
+        }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        mainWindow?.makeKeyAndOrderFront(nil)
     }
 
     func updateSettingsTitle() {

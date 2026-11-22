@@ -119,6 +119,23 @@ Two details matter here:
 - **The note type is kept up to date.** Templates and styling are only rewritten when they differ, so Anki doesn't ask for a full sync after every start. Older field names (Satz, Übersetzung, …) are renamed, so the content stays.
 - **Media names follow Anki.** AnkiConnect stores `clipout-AB12.mp3` as `clipout-ab12.mp3`. The Mac doesn't care about case, but AnkiWeb does: with the wrong case it finds no file and shows no play button. Clipout therefore uses lowercase names and writes the name Anki reports into the note.
 
+### Writing corrections
+
+The right side of the main window. Clipout doesn't correct anything itself, so nothing leaves the Mac: you give your text and the prompt (“Copy prompt”) to an AI, and paste its answer.
+
+```mermaid
+flowchart LR
+    T[Your text] --> AI[An AI of your choice<br/>with Clipout's prompt]
+    AI --> R["One line per sentence:<br/>Text ⇥ Back Extra ⇥ Sentence ⇥ Tags"]
+    R --> P[Corrections.parse<br/>skips header and code-fence lines,<br/>reports lines it cannot read]
+    P --> V[Preview: gaps, original, tip, tags]
+    V --> AU[Audio of the corrected sentence]
+    AU --> N[“Clipout Correction” note<br/>one card per gap, typed answer]
+    N --> Q[(queue)] --> ANKI[Anki]
+```
+
+The note type “Clipout Correction” is created the first time it is used. Its cards show the sentence with one gap and a typing box; the back compares what you typed, then shows your original, the tip and plays the sentence.
+
 ## Audio
 
 ```mermaid
@@ -155,6 +172,8 @@ Clipout creates two note types and the deck you set (default `Clipout`):
 | `Source` | a link to the page (only `http`/`https`) or the app's window title |
 | `Meaning` | Wiktionary meanings of the words you chose |
 | `Listening` | `yes` for listening cards |
+
+Writing corrections use their own note type, “Clipout Correction”: `Text` (sentence with `{{c1::…}}` gaps), `Back Extra` (original and tip), `Sentence` (the corrected sentence, read aloud) and `Audio`.
 
 The template reads `Listening`: a listening card shows only the audio in front (`🎧`) and the sentence on the back. Everything inserted into a field is HTML-escaped first.
 
@@ -226,6 +245,7 @@ Sources/
 │   ├── Card.swift          CardDraft → AnkiNote, note types, templates, migration
 │   ├── History.swift       history entries, expiry, secret detection, patterns
 │   ├── Dictionary.swift    Wiktionary parsing, inflected form → lemma
+│   ├── Corrections.swift   reading an AI's correction lines, notes with typed gaps
 │   └── AnkiConnect.swift   request/response types, error explanations
 ├── CSherpaOnnx/            C interface of sherpa-onnx (header only)
 └── Clipout/                the app
@@ -234,6 +254,7 @@ Sources/
     ├── Selection.swift     reading the selection, ⌘C fallback, mouse watcher
     ├── Panels.swift        floating icon, toast
     ├── Composer.swift      the “New card” window
+    ├── Correction.swift    main window, writing corrections side, the prompt for the AI
     ├── Views.swift         menu, settings, welcome window
     ├── AnkiService.swift   queue, preparing Anki, sending
     ├── ClipboardMonitor.swift  clipboard history

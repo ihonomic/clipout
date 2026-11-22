@@ -61,6 +61,7 @@ enum Prefs {
     static let dictionaryKey = "dictionary"
     static let voiceKey = "voice"
     static let audioFormatKey = "audioFormat"
+    static let correctionDeckKey = "correctionDeck"
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
@@ -103,6 +104,12 @@ enum Prefs {
     static var voice: String { d.string(forKey: voiceKey) ?? "" }
     /// "mp3" plays everywhere, AnkiWeb included; "m4a" is Apple's AAC.
     static var audioExtension: String { d.string(forKey: audioFormatKey) == "m4a" ? "m4a" : "mp3" }
+    /// Deck for writing corrections; empty means "German::Corrections" in the app language.
+    static var correctionDeck: String {
+        let name = d.string(forKey: correctionDeckKey)?.trimmingCharacters(in: .whitespaces) ?? ""
+        return name.isEmpty ? defaultCorrectionDeck : name
+    }
+    static var defaultCorrectionDeck: String { "\(L10n.languageName(sourceLang))::\(L("Korrekturen"))" }
 
     static let languages: [(code: String, name: String)] = [
         ("de", "Deutsch"), ("en", "Englisch"), ("es", "Spanisch"), ("fr", "Französisch"),

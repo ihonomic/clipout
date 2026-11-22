@@ -73,6 +73,29 @@ enum SelfTest {
                 }
                 lines.append("Testkarte wieder gelöscht")
             }
+
+            // Writing correction: one sentence, two gaps → two cards to type.
+            let model = controller.corrections
+            model.input = "{{c1::In dieser Sendung geht es::this show is about · Ausdruck}} um {{c2::einen Mann::a man · Akkusativ}} \(Int.random(in: 1000...9999)).\tOriginal: Dieser Sendung geht um eine Mann.<br>Tipp: es geht um + Akkusativ\t\tAusdruck Kasus selbsttest"
+            await model.send(with: controller)
+            lines.append("Korrektur: \(model.result ?? "-")")
+            struct Card: Decodable { let modelName: String; let deckName: String; let fields: [String: Info.F] }
+            let cardIDs = ((try? await client.call("findCards", ["query": "tag:selbsttest"], as: [Int].self)) ?? nil) ?? []
+            let cards = ((try? await client.call("cardsInfo", ["cards": cardIDs], as: [Card].self)) ?? nil) ?? []
+            if let card = cards.first {
+                lines.append("In Anki: \(card.modelName) | \(card.deckName) | \(cards.count) Karten | \(card.fields["Sentence"]?.value ?? "") | \(card.fields["Audio"]?.value ?? "")")
+            }
+            let noteIDs = ((try? await client.call("findNotes", ["query": "tag:selbsttest"], as: [Int].self)) ?? nil) ?? []
+            if let info = try? await client.call("notesInfo", ["notes": noteIDs], as: [Info].self) {
+                for note in info {
+                    if let audio = note.fields["Audio"]?.value, audio.hasPrefix("[sound:") {
+                        _ = try? await client.call("deleteMediaFile", ["filename": String(audio.dropFirst(7).dropLast())],
+                                                   as: Ignored.self)
+                    }
+                }
+            }
+            _ = try? await client.call("deleteNotes", ["notes": noteIDs], as: Ignored.self)
+            lines.append("Korrektur-Testkarten wieder gelöscht: \(noteIDs.count) Notiz")
         }
         let store = controller.patterns
         store.start(clips: controller.clips)

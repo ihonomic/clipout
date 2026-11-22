@@ -38,4 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppController.shared.start()
         }
     }
+
+    /// Opening Clipout again (Finder, Spotlight, Dock) brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainActor.assumeIsolated { AppController.shared.openMain() }
+        return true
+    }
 }

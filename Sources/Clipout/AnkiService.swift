@@ -76,13 +76,19 @@ final class AnkiService: ObservableObject {
     }
 
     func send(_ note: AnkiNote, media: [String]) async -> SendOutcome {
-        let card = QueuedCard(note: note, media: media)
-        queue.append(card)
+        await send([(note, media)])[0]
+    }
+
+    /// Many notes at once (a whole writing correction): queued together,
+    /// so Anki is prepared once and not for every note.
+    func send(_ notes: [(note: AnkiNote, media: [String])]) async -> [SendOutcome] {
+        let cards = notes.map { QueuedCard(note: $0.note, media: $0.media) }
+        queue.append(contentsOf: cards)
         save()
         if isUp {
             await flush()
         }
-        return outcomes.removeValue(forKey: card.id) ?? .queued(lastError ?? L("Anki ist nicht geöffnet."))
+        return cards.map { outcomes.removeValue(forKey: $0.id) ?? .queued(lastError ?? L("Anki ist nicht geöffnet.")) }
     }
 
     /// For --selftest: set up note types, then ask Anki (without writing a
@@ -208,14 +214,20 @@ final class AnkiService: ObservableObject {
         let models = try await client.call("modelNames", NoParams(), as: [String].self) ?? []
         clozeModel = !models.contains(CardModels.cloze) && models.contains(CardModels.legacyCloze)
             ? CardModels.legacyCloze : CardModels.cloze
-        let wanted: [(name: String, fields: [String], cloze: Bool, front: String, back: String)] = [
-            (CardModels.basic, CardModels.basicFields, false, CardModels.basicFront, CardModels.basicBack),
-            (clozeModel, CardModels.clozeFields, true, CardModels.clozeFront, CardModels.clozeBack),
+        var wanted: [(name: String, fields: [String], cloze: Bool, front: String, back: String, css: String)] = [
+            (CardModels.basic, CardModels.basicFields, false, CardModels.basicFront, CardModels.basicBack,
+             CardModels.css),
+            (clozeModel, CardModels.clozeFields, true, CardModels.clozeFront, CardModels.clozeBack, CardModels.css),
         ]
+        // Only for people who use writing corrections.
+        if models.contains(CardModels.correction) || queue.contains(where: { $0.note.modelName == CardModels.correction }) {
+            wanted.append((CardModels.correction, CardModels.correctionFields, true, CardModels.correctionFront,
+                           CardModels.correctionBack, CardModels.correctionCSS))
+        }
         for m in wanted {
             if !models.contains(m.name) {
                 _ = try await client.call("createModel", CreateModel(
-                    modelName: m.name, inOrderFields: m.fields, css: CardModels.css, isCloze: m.cloze,
+                    modelName: m.name, inOrderFields: m.fields, css: m.css, isCloze: m.cloze,
                     cardTemplates: [.init(Name: "Card 1", Front: m.front, Back: m.back)]), as: Ignored.self)
                 continue
             }
@@ -243,9 +255,9 @@ final class AnkiService: ObservableObject {
             }
             let styling = try await client.call("modelStyling", ["modelName": m.name],
                                                 as: [String: String].self)
-            if styling?["css"] != CardModels.css {
+            if styling?["css"] != m.css {
                 _ = try await client.call("updateModelStyling",
-                                          UpdateStyling(model: .init(name: m.name, css: CardModels.css)),
+                                          UpdateStyling(model: .init(name: m.name, css: m.css)),
                                           as: Ignored.self)
             }
         }
