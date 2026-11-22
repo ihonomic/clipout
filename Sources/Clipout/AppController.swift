@@ -145,8 +145,11 @@ final class AppController: ObservableObject {
             Task { @MainActor in self?.windows.removeAll { $0 === note.object as? NSWindow } }
             if temporaryImage, let imageURL { try? FileManager.default.removeItem(at: imageURL) }
         }
-        NSApp.activate()
+        // Key first, then activate: activating brings the main and key windows
+        // forward, and the main window would otherwise cover the page you
+        // were reading.
         window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
     }
 
     func openComposer(for item: ClipItem) {

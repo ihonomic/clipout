@@ -56,5 +56,6 @@ if [[ "${1:-}" == "--open" ]]; then
     pkill -x Clipout 2>/dev/null || true
     # `open` right after pkill fails with -600 while the old process exits.
     for _ in {1..50}; do pgrep -x Clipout >/dev/null || break; sleep 0.1; done
+    sleep 0.5   # Launch Services needs a moment more after the process is gone
     open "$APP"
 fi
