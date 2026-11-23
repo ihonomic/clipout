@@ -332,7 +332,10 @@ func languageTextIsNotASecret(_ text: String) {
     let note = Corrections.note(for: row, deck: "Deutsch::Korrekturen", audioFile: "clipout-a.mp3")
     #expect(note.modelName == CardModels.correction)
     #expect(note.fields["Text"] == "Er sagte {{c1::„ja“}} &lt;script&gt;x&lt;/script&gt;")
-    #expect(note.fields["Back Extra"] == "Original: Er sagte ja<br>Tipp: <b>Zitat</b> &lt;img src=x onerror=alert(1)&gt;")
+    #expect(note.fields["Back Extra"] == "Original: Er sagte ja<br><span class=\"tip\">Tipp: <b>Zitat</b> &lt;img src=x onerror=alert(1)&gt;</span>")
+    // Applied once only, and without a tip nothing changes.
+    #expect(Corrections.highlightingTip(note.fields["Back Extra"]!) == note.fields["Back Extra"])
+    #expect(Corrections.highlightingTip("Original: x") == "Original: x")
     #expect(note.fields["Audio"] == "[sound:clipout-a.mp3]")
     #expect(note.tags == ["clipout", "Ausdruck"])
 }

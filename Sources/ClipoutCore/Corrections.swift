@@ -84,11 +84,18 @@ public enum Corrections {
         AnkiNote(deckName: deck, modelName: CardModels.correction,
                  fields: [
                      "Text": HTML.escape(row.text),
-                     "Back Extra": keepingSimpleTags(HTML.escape(row.backExtra)),
+                     "Back Extra": highlightingTip(keepingSimpleTags(HTML.escape(row.backExtra))),
                      "Sentence": HTML.escape(row.sentence),
                      "Audio": audioFile.map { "[sound:\($0)]" } ?? "",
                  ],
                  tags: ["clipout"] + row.tags)
+    }
+
+    /// "Original: …<br>Tipp: …" → the tip in a span the card shows in red.
+    public static func highlightingTip(_ html: String) -> String {
+        guard !html.contains("class=\"tip\""),
+              let start = html.firstMatch(of: #/(?i)\b(tipp?|tip):/#)?.range.lowerBound else { return html }
+        return html[..<start] + "<span class=\"tip\">" + html[start...] + "</span>"
     }
 
     private static func keepingSimpleTags(_ escaped: String) -> String {

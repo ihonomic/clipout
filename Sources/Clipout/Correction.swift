@@ -69,7 +69,7 @@ enum CorrectionPrompt {
 
             Regeln:
             - Jede Korrektur bekommt eine eigene Cloze, auch wenn sich ein Fehler wiederholt.
-            - Ausnahme: Artikel (der/die/das, ein/eine) und Adjektivendungen korrigierst du im Satz, aber ohne Cloze.
+            - Ausnahme: Artikel (der/die/das, ein/eine), Adjektivendungen und Umlaute (ä, ö, ü) korrigierst du im Satz, aber ohne Cloze.
             - Ein Satz = eine Zeile. Mehrere Korrekturen im selben Satz = c1, c2, c3 in derselben Zeile.
             - Prüfe deine Korrekturen vor der Antwort noch einmal auf Rechtschreibung.
 
@@ -87,7 +87,7 @@ enum CorrectionPrompt {
 
         Rules:
         - Every correction gets its own cloze, even if a mistake repeats.
-        - Exception: articles and adjective endings are corrected in the sentence, but without a cloze.
+        - Exception: articles, adjective endings and umlauts (ä, ö, ü) are corrected in the sentence, but without a cloze.
         - One sentence = one line. Several corrections in the same sentence = c1, c2, c3 in the same line.
         - Check your corrections for spelling once more before answering.
 

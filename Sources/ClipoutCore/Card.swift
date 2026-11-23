@@ -126,9 +126,14 @@ public enum CardModels {
     public static let correctionFields = ["Text", "Back Extra", "Sentence", "Audio"]
     public static let correctionCSS = css + """
 
-    .extra { color: #666; font-size: 17px; text-align: left; max-width: 640px; margin: 14px auto 0; }
+    .extra { color: #666; font-size: 17px; text-align: left; max-width: 640px; margin: 14px auto 0;
+      font-style: italic; }
     .nightMode .extra, .night_mode .extra { color: #aaa; }
     #typeans { font-size: 22px; }
+    /* Your original in italics above, the tip upright below a line. */
+    .tip { display: block; color: #c62828; font-style: normal; border-top: 1px solid #ddd;
+      margin-top: 8px; padding-top: 8px; }
+    .nightMode .tip, .night_mode .tip { color: #ff7a7a; border-top-color: #444; }
     """
     public static let correctionFront = """
     <div class="sentence">{{cloze:Text}}</div>
