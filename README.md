@@ -60,7 +60,7 @@ Needs macOS 26 or later (Apple Silicon or Intel) and [Anki](https://apps.ankiweb
 ## Features
 
 - **Main window with two sides:** opens when you start Clipout (and from the menu bar icon). Left: what you copy or select, as described below. Right: writing corrections.
-- **Writing corrections → Anki:** have an AI correct your text with the prompt from “Copy prompt”, paste its answer, check the preview and send. Every correction becomes a card where you type the right form (one note per sentence, one gap per correction); the back shows your original sentence, the tip and the corrected sentence read aloud. Tags record the kind of mistake and the date, so `tag:WordOrder tag:2026-11*` in Anki shows how often you made it that month.
+- **Writing corrections → Anki:** have an AI correct your text with the prompt from “Copy prompt”, paste its answer, check the preview and send. Every correction becomes a card where you type the right form (one note per sentence, one gap per correction); the back shows your original sentence, the tip and the corrected sentence read aloud. Tags record the kind of mistake and the date, so `tag:WordOrder tag:2026-11*` in Anki shows how often you made it that month. Settings → Correction cards switches all of them, including those already in Anki, to **whole sentence**: your original sentence, one point per correction to look out for, the sentence with blanks, and you type the whole corrected sentence.
 - **Button next to a selection:** after you select text, a small “+ Anki” appears next to it. Clicking it opens the “New card” window.
 - **⌥⌘A:** sends the selection as a card right away, without a window.
 - **Clipboard history:** the menu bar icon lists everything you copied, text and images. Every row has a “+ Anki” button.

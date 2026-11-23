@@ -81,6 +81,9 @@ func makeWindow<Content: View>(title: String, size: NSSize, content: Content) ->
     window.title = title
     window.isReleasedWhenClosed = false
     window.level = .floating
+    // Opened on another desktop (Space), a window stayed there: clicking
+    // Settings did nothing visible. It now comes to the desktop you are on.
+    window.collectionBehavior.insert(.moveToActiveSpace)
     window.contentView = NSHostingView(rootView: content)
     window.center()
     return window

@@ -79,11 +79,14 @@ enum SelfTest {
             model.input = "{{c1::In dieser Sendung geht es::this show is about · Ausdruck}} um {{c2::einen Mann::a man · Akkusativ}} \(Int.random(in: 1000...9999)).\tOriginal: Dieser Sendung geht um eine Mann.<br>Tipp: es geht um + Akkusativ\t\tAusdruck Kasus selbsttest"
             await model.send(with: controller)
             lines.append("Korrektur: \(model.result ?? "-")")
-            struct Card: Decodable { let modelName: String; let deckName: String; let fields: [String: Info.F] }
+            struct Card: Decodable { let modelName: String; let deckName: String; let fields: [String: Info.F]; let queue: Int }
             let cardIDs = ((try? await client.call("findCards", ["query": "tag:selbsttest"], as: [Int].self)) ?? nil) ?? []
             let cards = ((try? await client.call("cardsInfo", ["cards": cardIDs], as: [Card].self)) ?? nil) ?? []
-            if let card = cards.first {
-                lines.append("In Anki: \(card.modelName) | \(card.deckName) | \(cards.count) Karten | \(card.fields["Sentence"]?.value ?? "") | \(card.fields["Audio"]?.value ?? "")")
+            // Both kinds of card; the one not chosen in Settings is suspended (queue -1).
+            for model in [CardModels.correction, CardModels.correctionSentence] {
+                let ofModel = cards.filter { $0.modelName == model }
+                guard let card = ofModel.first else { lines.append("In Anki: keine \(model)"); continue }
+                lines.append("In Anki: \(model) | \(card.deckName) | \(ofModel.count) Karte(n) | ausgesetzt: \(ofModel.allSatisfy { $0.queue == -1 }) | \(card.fields["Checklist"]?.value ?? card.fields["Audio"]?.value ?? "")")
             }
             let noteIDs = ((try? await client.call("findNotes", ["query": "tag:selbsttest"], as: [Int].self)) ?? nil) ?? []
             if let info = try? await client.call("notesInfo", ["notes": noteIDs], as: [Info].self) {

@@ -145,10 +145,17 @@ final class AppController: ObservableObject {
             Task { @MainActor in self?.windows.removeAll { $0 === note.object as? NSWindow } }
             if temporaryImage, let imageURL { try? FileManager.default.removeItem(at: imageURL) }
         }
-        // Key first, then activate: activating brings the main and key windows
-        // forward, and the main window would otherwise cover the page you
-        // were reading.
+        show(window)
+    }
+
+    /// Brings a window forward. Key first, then activate: activating brings
+    /// the main and key windows forward, and the main window would otherwise
+    /// cover the page you were reading. orderFrontRegardless, because macOS
+    /// may decline the activation (from the menu bar, for instance), and the
+    /// window then stayed hidden behind everything.
+    private func show(_ window: NSWindow?) {
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
         NSApp.activate()
     }
 
@@ -193,8 +200,7 @@ final class AppController: ObservableObject {
                                         content: SettingsView(controller: self))
         }
         updateSettingsTitle()
-        NSApp.activate()
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        show(settingsWindow)
     }
 
     /// The main window with both sides. While it is open Clipout is an
@@ -213,8 +219,7 @@ final class AppController: ObservableObject {
             mainWindow = window
         }
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate()
-        mainWindow?.makeKeyAndOrderFront(nil)
+        show(mainWindow)
     }
 
     func updateSettingsTitle() {
@@ -230,8 +235,7 @@ final class AppController: ObservableObject {
                                        })
             welcomeWindow?.styleMask.remove(.resizable)
         }
-        NSApp.activate()
-        welcomeWindow?.makeKeyAndOrderFront(nil)
+        show(welcomeWindow)
     }
 
     func showToast(_ text: String) {

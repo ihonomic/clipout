@@ -91,6 +91,39 @@ public enum Corrections {
                  tags: ["clipout"] + row.tags)
     }
 
+    /// The whole-sentence card for a gap note (its fields as stored in Anki):
+    /// your original, what to look out for, the sentence with blanks of one
+    /// length (no hints, nothing given away), and you type the whole sentence.
+    /// It shares the gap note's audio, deck and tags.
+    public static func sentenceNote(from gapNote: AnkiNote) -> AnkiNote {
+        let text = gapNote.fields["Text"] ?? ""
+        let back = gapNote.fields["Back Extra"] ?? ""
+        let withoutSpan = back.replacing(#/<span class="tip">|<\/span>/#, with: "")
+        let tipStart = withoutSpan.firstMatch(of: #/(?i)\b(tipp?|tip):/#)?.range.lowerBound
+        let tip = tipStart.map { String(withoutSpan[$0...]) } ?? ""
+        let original = String(withoutSpan[..<(tipStart ?? withoutSpan.endIndex)])
+            .replacing(#/^\s*Original:\s*/#, with: "")
+            .replacing(#/(\s|<br>)+$/#, with: "")
+        let sentence = gapNote.fields["Sentence"] ?? plain(text)
+        let points = checklist(gaps: gaps(in: text))
+        return AnkiNote(deckName: gapNote.deckName, modelName: CardModels.correctionSentence,
+                        fields: [
+                            "Sentence": sentence,
+                            "Original": original,
+                            "Checklist": points.isEmpty ? "" : "<ol>" + points.map { "<li>\($0)</li>" }.joined() + "</ol>",
+                            "Gaps": text.replacing(gapPattern) { _ in "_____" },
+                            "Tip": tip,
+                            "Audio": gapNote.fields["Audio"] ?? "",
+                        ],
+                        tags: gapNote.tags)
+    }
+
+    /// What to look out for when correcting the whole sentence: the hint of
+    /// each gap, word for word as on the gap cards, in the order of the blanks.
+    public static func checklist(gaps: [Gap]) -> [String] {
+        gaps.map { $0.hint?.trimmingCharacters(in: .whitespaces) ?? "" }.filter { !$0.isEmpty }
+    }
+
     /// "Original: …<br>Tipp: …" → the tip in a span the card shows in red.
     public static func highlightingTip(_ html: String) -> String {
         guard !html.contains("class=\"tip\""),

@@ -45,6 +45,13 @@ public struct AnkiNote: Codable, Equatable, Sendable {
     public var options = Options()
     public var tags: [String]
 
+    public init(deckName: String, modelName: String, fields: [String: String], tags: [String]) {
+        self.deckName = deckName
+        self.modelName = modelName
+        self.fields = fields
+        self.tags = tags
+    }
+
     /// The note with a media file name replaced, for when Anki stores the
     /// file under another name than the one asked for.
     public func renamingMedia(_ old: String, to new: String) -> AnkiNote {
@@ -64,6 +71,9 @@ public enum CardModels {
     public static let cloze = "Clipout Cloze"
     /// Writing corrections: a typed answer per gap (see Corrections).
     public static let correction = "Clipout Correction"
+    /// The same corrections as one card per sentence; Settings decides which
+    /// of the two is active (the other one is suspended in Anki).
+    public static let correctionSentence = "Clipout Correction Sentence"
     /// Name used by 0.1.x; Anki can't rename note types over AnkiConnect,
     /// so an existing one keeps being used.
     public static let legacyCloze = "Clipout Lücke"
@@ -135,6 +145,39 @@ public enum CardModels {
       margin-top: 8px; padding-top: 8px; }
     .nightMode .tip, .night_mode .tip { color: #ff7a7a; border-top-color: #444; }
     """
+    public static let correctionSentenceFields = ["Sentence", "Original", "Checklist", "Gaps", "Tip", "Audio"]
+    public static let correctionSentenceCSS = css + """
+
+    .task { font-size: 15px; color: #888; }
+    .original { font-size: 17px; font-style: italic; color: #777; max-width: 640px; margin: 4px auto 0; }
+    .checklist { text-align: left; max-width: 640px; margin: 10px auto 0; font-size: 16px; color: #555; }
+    .checklist ul { margin: 4px 0 0; padding-left: 22px; }
+    .gaps { font-size: 22px; margin: 14px auto 6px; max-width: 640px; }
+    .tip { color: #c62828; font-size: 16px; text-align: left; max-width: 640px; margin: 10px auto 0; }
+    .nightMode .original, .night_mode .original, .nightMode .checklist, .night_mode .checklist { color: #aaa; }
+    .nightMode .tip, .night_mode .tip { color: #ff7a7a; }
+    /* Anki's typing box is one line: small type so a whole sentence fits. */
+    #typeans { font-size: 14px; width: 100%; box-sizing: border-box; }
+    """
+    /// `task` and `lookFor` are UI text in the app language.
+    public static func correctionSentenceFront(task: String, lookFor: String) -> String {
+        """
+        <div class="task">\(task)</div>
+        <div class="original">{{Original}}</div>
+        <hr>
+        {{#Checklist}}<div class="checklist">\(lookFor){{Checklist}}</div>{{/Checklist}}
+        <div class="gaps">{{Gaps}}</div>
+        {{type:Sentence}}
+        """
+    }
+    public static let correctionSentenceBack = """
+    <div class="sentence">{{Sentence}}</div>
+    {{type:Sentence}}
+    <hr id=answer>
+    {{#Tip}}<div class="tip">{{Tip}}</div>{{/Tip}}
+    {{Audio}}
+    """
+
     public static let correctionFront = """
     <div class="sentence">{{cloze:Text}}</div>
     {{type:cloze:Text}}

@@ -33,13 +33,18 @@ final class CorrectionModel: ObservableObject {
                     audio = name
                 }
             }
-            notes.append((Corrections.note(for: row, deck: deck, audioFile: audio), audio.map { [$0] } ?? []))
+            // Both kinds of card, gaps and whole sentence; Settings decides
+            // which one is active, the other is suspended after sending.
+            let gapNote = Corrections.note(for: row, deck: deck, audioFile: audio)
+            notes.append((gapNote, audio.map { [$0] } ?? []))
+            notes.append((Corrections.sentenceNote(from: gapNote), audio.map { [$0] } ?? []))
         }
         progress = L("Wird an Anki gesendet…")
         let outcomes = await controller.anki.send(notes)
         progress = nil
         var sent = 0, duplicates = 0, queued = 0
-        for outcome in outcomes {
+        // Counted per sentence: the gap notes are every other one.
+        for outcome in outcomes.enumerated().filter({ $0.offset.isMultiple(of: 2) }).map(\.element) {
             switch outcome {
             case .sent: sent += 1
             case .duplicate: duplicates += 1
@@ -69,7 +74,7 @@ enum CorrectionPrompt {
 
             Regeln:
             - Jede Korrektur bekommt eine eigene Cloze, auch wenn sich ein Fehler wiederholt.
-            - Ausnahme: Artikel (der/die/das, ein/eine), Adjektivendungen und Umlaute (ä, ö, ü) korrigierst du im Satz, aber ohne Cloze.
+            - Ausnahme: Artikel (der/die/das, ein/eine), Adjektivendungen, Deklination und Umlaute (ä, ö, ü) korrigierst du im Satz, aber ohne Cloze.
             - Ein Satz = eine Zeile. Mehrere Korrekturen im selben Satz = c1, c2, c3 in derselben Zeile.
             - Prüfe deine Korrekturen vor der Antwort noch einmal auf Rechtschreibung.
 
@@ -87,7 +92,7 @@ enum CorrectionPrompt {
 
         Rules:
         - Every correction gets its own cloze, even if a mistake repeats.
-        - Exception: articles, adjective endings and umlauts (ä, ö, ü) are corrected in the sentence, but without a cloze.
+        - Exception: articles, adjective endings, declension and umlauts (ä, ö, ü) are corrected in the sentence, but without a cloze.
         - One sentence = one line. Several corrections in the same sentence = c1, c2, c3 in the same line.
         - Check your corrections for spelling once more before answering.
 
@@ -202,7 +207,8 @@ struct CorrectionView: View {
             if model.rows.isEmpty {
                 Spacer()
             } else {
-                Text(L("%d Sätze · %d Karten", model.rows.count, model.cardCount))
+                Text(L("%d Sätze · %d Karten", model.rows.count,
+                       Prefs.correctionMode == "sentence" ? model.rows.count : model.cardCount))
                     .font(.headline)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {

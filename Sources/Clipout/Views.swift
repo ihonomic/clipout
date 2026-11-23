@@ -227,6 +227,8 @@ struct SettingsView: View {
     @AppStorage(Prefs.dictionaryKey) private var dictionary = true
     @AppStorage(Prefs.voiceKey) private var voice = ""
     @AppStorage(Prefs.audioFormatKey) private var audioFormat = "mp3"
+    @AppStorage(Prefs.correctionModeKey) private var correctionMode = "gaps"
+    @AppStorage(Prefs.correctionDeckKey) private var correctionDeck = ""
     @AppStorage(Prefs.showIconKey) private var showIcon = true
     @AppStorage(Prefs.copyFallbackKey) private var copyFallback = true
     @AppStorage(Prefs.historyLimitKey) private var historyLimit = 200
@@ -280,15 +282,28 @@ struct SettingsView: View {
                 Text(L("Natürlich klingende Stimmen, offline. Einmal herunterladen (von GitHub, mit Prüfsumme); jede Stimme hat ihre eigene Lizenz (MODEL_CARD im Ordner der Stimme)."))
                     .font(.caption).foregroundStyle(.secondary)
             }
+            // Shared by both sides of the main window.
             Section("Anki") {
-                TextField(L("Deck"), text: $deck)
                 TextField(L("AnkiConnect-Port"), value: $ankiPort, format: .number.grouping(.never))
                 Toggle(L("Audio für jede Karte erzeugen"), isOn: $makeAudio)
                 Picker(L("Audioformat"), selection: $audioFormat) {
                     Text(L("MP3 – läuft überall, auch auf AnkiWeb")).tag("mp3")
                     Text(L("M4A (AAC) – nicht auf AnkiWeb")).tag("m4a")
                 }
+            }
+            Section(L("Kopieren → Anki")) {
+                TextField(L("Deck"), text: $deck)
                 Toggle("🎧 " + L("Neue Karten als Hörkarten"), isOn: $listening)
+            }
+            Section(L("Textkorrektur → Anki")) {
+                TextField(L("Deck"), text: $correctionDeck, prompt: Text(Prefs.defaultCorrectionDeck))
+                Picker(L("Korrekturkarten"), selection: $correctionMode) {
+                    Text(L("Lücken – eine Karte pro Fehler")).tag("gaps")
+                    Text(L("Ganzer Satz – eine Karte pro Satz")).tag("sentence")
+                }
+                .onChange(of: correctionMode) { Task { await controller.anki.applyCorrectionMode() } }
+                Text(L("Gilt für alle Korrekturkarten, auch die schon in Anki. Die andere Art wird ausgesetzt, der Lernstand bleibt erhalten."))
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section(L("Wörterbuch")) {
                 Toggle(L("Erklärungen aus dem Wiktionary (online, sendet nur das Wort)"), isOn: $dictionary)

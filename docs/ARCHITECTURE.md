@@ -175,6 +175,8 @@ Clipout creates two note types and the deck you set (default `Clipout`):
 
 Writing corrections use their own note type, “Clipout Correction”: `Text` (sentence with `{{c1::…}}` gaps), `Back Extra` (original and tip), `Sentence` (the corrected sentence, read aloud) and `Audio`.
 
+Every corrected sentence also gets a “Clipout Correction Sentence” note: one card where you type the whole sentence, with your `Original`, a `Checklist` (one point per gap: its hint, word for word as on the gap card), the `Gaps` sentence with blanks, the `Tip` and the same `Audio`. Settings → Correction cards decides which kind is in use; Clipout suspends the other kind in Anki, so switching keeps the progress of both. The first switch to “whole sentence” creates these notes for corrections sent earlier.
+
 The template reads `Listening`: a listening card shows only the audio in front (`🎧`) and the sentence on the back. Everything inserted into a field is HTML-escaped first.
 
 ## Clipboard history

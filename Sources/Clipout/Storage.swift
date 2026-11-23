@@ -62,6 +62,8 @@ enum Prefs {
     static let voiceKey = "voice"
     static let audioFormatKey = "audioFormat"
     static let correctionDeckKey = "correctionDeck"
+    static let correctionModeKey = "correctionMode"
+    static let appliedCorrectionModeKey = "appliedCorrectionMode"
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
@@ -78,6 +80,8 @@ enum Prefs {
             listeningKey: false,
             dictionaryKey: true,
             audioFormatKey: "mp3",
+            correctionModeKey: "gaps",
+            appliedCorrectionModeKey: "gaps",
         ])
     }
 
@@ -109,6 +113,10 @@ enum Prefs {
         let name = d.string(forKey: correctionDeckKey)?.trimmingCharacters(in: .whitespaces) ?? ""
         return name.isEmpty ? defaultCorrectionDeck : name
     }
+    /// Writing corrections: "gaps" (a card per correction) or "sentence"
+    /// (a card per sentence, typed whole). Both kinds exist in Anki; the
+    /// other one is suspended.
+    static var correctionMode: String { d.string(forKey: correctionModeKey) == "sentence" ? "sentence" : "gaps" }
     static var defaultCorrectionDeck: String { "\(L10n.languageName(sourceLang))::\(L("Korrekturen"))" }
 
     static let languages: [(code: String, name: String)] = [

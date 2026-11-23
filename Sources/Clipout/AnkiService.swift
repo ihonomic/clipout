@@ -72,6 +72,9 @@ final class AnkiService: ObservableObject {
             lastError = queue.isEmpty ? nil : L("Anki ist nicht geöffnet.")
         } else if !queue.isEmpty {
             await flush()
+        } else if Prefs.correctionMode != UserDefaults.standard.string(forKey: Prefs.appliedCorrectionModeKey) {
+            // Switched in Settings while Anki was closed.
+            await applyCorrectionMode()
         }
     }
 
@@ -89,6 +92,90 @@ final class AnkiService: ObservableObject {
             await flush()
         }
         return cards.map { outcomes.removeValue(forKey: $0.id) ?? .queued(lastError ?? L("Anki ist nicht geöffnet.")) }
+    }
+
+    // MARK: - Writing corrections: gaps or whole sentence
+
+    /// Every corrected sentence has a gap note and a sentence note; the kind
+    /// not chosen in Settings is suspended, so switching keeps the progress of
+    /// both. Switching to "sentence" the first time makes the sentence notes
+    /// for corrections sent before there was such a thing.
+    func applyCorrectionMode() async {
+        guard isUp, !flushing else { return }
+        flushing = true
+        defer { flushing = false }
+        do {
+            try await prepareAnki()
+            if Prefs.correctionMode == "sentence" { try await syncSentenceNotes() }
+            let (active, inactive) = Prefs.correctionMode == "sentence"
+                ? (CardModels.correctionSentence, CardModels.correction)
+                : (CardModels.correction, CardModels.correctionSentence)
+            try await suspendCards(of: inactive, true)
+            try await suspendCards(of: active, false)
+            UserDefaults.standard.set(Prefs.correctionMode, forKey: Prefs.appliedCorrectionModeKey)
+            lastError = nil
+        } catch let error as AnkiError {
+            lastError = L(error.explanation)
+        } catch {
+            lastError = L("Anki antwortet nicht: %@", error.localizedDescription)
+        }
+    }
+
+    /// After sending corrections: their cards of the kind not in use wait suspended.
+    func suspendInactiveCorrections() async {
+        guard isUp else { return }
+        let inactive = Prefs.correctionMode == "sentence" ? CardModels.correction : CardModels.correctionSentence
+        try? await suspendCards(of: inactive, true)
+    }
+
+    private func suspendCards(of model: String, _ suspend: Bool) async throws {
+        let query = "note:\"\(model)\" " + (suspend ? "-is:suspended" : "is:suspended")
+        let cards = try await client.call("findCards", ["query": query], as: [Int].self) ?? []
+        guard !cards.isEmpty else { return }
+        _ = try await client.call(suspend ? "suspend" : "unsuspend", ["cards": cards], as: Ignored.self)
+    }
+
+    /// Makes the sentence note for every gap note, and brings existing ones
+    /// up to date when the way they are built changed (the checklist, say).
+    private func syncSentenceNotes() async throws {
+        struct Field: Decodable { let value: String }
+        struct NoteInfo: Decodable { let noteId: Int; let tags: [String]; let fields: [String: Field] }
+        struct CardInfo: Decodable { let note: Int; let deckName: String }
+        let cardIDs = try await client.call("findCards", ["query": "note:\"\(CardModels.correction)\""],
+                                            as: [Int].self) ?? []
+        guard !cardIDs.isEmpty else { return }
+        let cards = try await client.call("cardsInfo", ["cards": cardIDs], as: [CardInfo].self) ?? []
+        let decks = Dictionary(cards.map { ($0.note, $0.deckName) }, uniquingKeysWith: { first, _ in first })
+        let infos = try await client.call("notesInfo", ["notes": Array(decks.keys)], as: [NoteInfo].self) ?? []
+        let notes = infos.compactMap { info -> AnkiNote? in
+            guard let deck = decks[info.noteId] else { return nil }
+            return Corrections.sentenceNote(from: AnkiNote(deckName: deck, modelName: CardModels.correction,
+                                                           fields: info.fields.mapValues(\.value), tags: info.tags))
+        }
+        struct Update: Encodable {
+            struct Note: Encodable { let id: Int; let fields: [String: String] }
+            let note: Note
+        }
+        let existingIDs = try await client.call("findNotes", ["query": "note:\"\(CardModels.correctionSentence)\""],
+                                                as: [Int].self) ?? []
+        let existing = try await client.call("notesInfo", ["notes": existingIDs], as: [NoteInfo].self) ?? []
+        let bySentence = Dictionary(existing.map { ($0.fields["Sentence"]?.value ?? "", $0) },
+                                    uniquingKeysWith: { first, _ in first })
+        var missing: [AnkiNote] = []
+        for note in notes {
+            guard let old = bySentence[note.fields["Sentence"] ?? ""] else { missing.append(note); continue }
+            let changed = note.fields.filter { old.fields[$0.key]?.value != $0.value }
+            if !changed.isEmpty {
+                // An editor open on this note refuses the write; the next switch catches up.
+                _ = try? await client.call("updateNoteFields", Update(note: .init(id: old.noteId, fields: changed)),
+                                           as: Ignored.self)
+            }
+        }
+        guard !missing.isEmpty else { return }
+        let addable = try await client.call("canAddNotes", ["notes": missing], as: [Bool].self) ?? []
+        let add = zip(missing, addable).filter(\.1).map(\.0)
+        guard !add.isEmpty else { return }
+        _ = try await client.call("addNotes", ["notes": add], as: [Int?].self)
     }
 
     /// For --selftest: set up note types, then ask Anki (without writing a
@@ -112,6 +199,7 @@ final class AnkiService: ObservableObject {
         guard !flushing else { return }
         flushing = true
         defer { flushing = false }
+        var sentCorrections = false
         do {
             try await prepareAnki()
             while var card = queue.first {
@@ -136,6 +224,9 @@ final class AnkiService: ObservableObject {
                     if let stored, stored != name { card.note = card.note.renamingMedia(name, to: stored) }
                 }
                 _ = try await client.call("addNote", ["note": card.note], as: Int.self)
+                if card.note.modelName == CardModels.correction || card.note.modelName == CardModels.correctionSentence {
+                    sentCorrections = true
+                }
                 finish(card, .sent)
             }
             lastError = nil
@@ -144,6 +235,9 @@ final class AnkiService: ObservableObject {
         } catch {
             lastError = L("Anki antwortet nicht: %@", error.localizedDescription)
         }
+        // Corrections arrive as both kinds of card, also those queued while
+        // Anki was closed; the one not in use waits suspended.
+        if sentCorrections { await suspendInactiveCorrections() }
     }
 
     private func finish(_ card: QueuedCard, _ outcome: SendOutcome) {
@@ -223,6 +317,10 @@ final class AnkiService: ObservableObject {
         if models.contains(CardModels.correction) || queue.contains(where: { $0.note.modelName == CardModels.correction }) {
             wanted.append((CardModels.correction, CardModels.correctionFields, true, CardModels.correctionFront,
                            CardModels.correctionBack, CardModels.correctionCSS))
+            wanted.append((CardModels.correctionSentence, CardModels.correctionSentenceFields, false,
+                           CardModels.correctionSentenceFront(task: L("Korrigiere diesen Satz:"),
+                                                              lookFor: L("Achte auf:")),
+                           CardModels.correctionSentenceBack, CardModels.correctionSentenceCSS))
         }
         for m in wanted {
             if !models.contains(m.name) {

@@ -339,3 +339,24 @@ func languageTextIsNotASecret(_ text: String) {
     #expect(note.fields["Audio"] == "[sound:clipout-a.mp3]")
     #expect(note.tags == ["clipout", "Ausdruck"])
 }
+
+@Test func sentenceCardListsRulesAndTheWordsToReplace() {
+    // A real note from the archive (01.10.).
+    let gapNote = AnkiNote(deckName: "Korrekturen", modelName: CardModels.correction, fields: [
+        "Text": "{{c1::Insgesamt ist es::all in all it is · Adverb auf Position 1 → Verb auf Position 2, kein Komma}} ein schönes Leben und mit Gott {{c2::verbunden zu sein::to be connected · Infinitivgruppe: Partizip, dann Partikel, dann Infinitiv}} ist eine {{c3::tolle und bereichernde Verpflichtung::great and enriching commitment · Adjektivendung nach „eine“; deutsche Konjunktion; Singular; Nomen groß}}.",
+        "Back Extra": "Original: Insgesamt, es ist eine schönes Leben und mit Gott zu verbunden ist eine tolles and lechtfertiges verpflichtungen zu sein.<br><span class=\"tip\">Tipp: Nach „Insgesamt“ kommt direkt das Verb.</span>",
+        "Sentence": "Insgesamt ist es ein schönes Leben und mit Gott verbunden zu sein ist eine tolle und bereichernde Verpflichtung.",
+        "Audio": "[sound:clipout-a.mp3]",
+    ], tags: ["clipout", "Wortstellung"])
+    let note = Corrections.sentenceNote(from: gapNote)
+    #expect(note.modelName == CardModels.correctionSentence)
+    #expect(note.deckName == "Korrekturen" && note.tags == gapNote.tags)
+    #expect(note.fields["Original"]?.hasPrefix("Insgesamt, es ist") == true)
+    #expect(note.fields["Tip"] == "Tipp: Nach „Insgesamt“ kommt direkt das Verb.")
+    // Blanks of one length, no English.
+    #expect(note.fields["Gaps"] == "_____ ein schönes Leben und mit Gott _____ ist eine _____.")
+    // One point per gap: its hint, word for word as on the gap card.
+    #expect(note.fields["Checklist"] == "<ol><li>all in all it is · Adverb auf Position 1 → Verb auf Position 2, kein Komma</li><li>to be connected · Infinitivgruppe: Partizip, dann Partikel, dann Infinitiv</li><li>great and enriching commitment · Adjektivendung nach „eine“; deutsche Konjunktion; Singular; Nomen groß</li></ol>")
+    #expect(note.fields["Audio"] == "[sound:clipout-a.mp3]")
+}
+
