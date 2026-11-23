@@ -170,8 +170,11 @@ How the parts work together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITEC
 
 ## Changelog
 
-**Unreleased**
-- Main window with two sides: copy → Anki, and writing corrections → Anki with a typed answer per correction.
+**0.3.0**
+- Main window with two sides: copy → Anki, and writing corrections → Anki. Clipout gives you a prompt for an AI; paste its answer and every correction becomes a card where you type the right form. The back shows your original in italics and the tip in red, and plays the sentence.
+- Whole-sentence cards: Settings → Correction cards switches all correction cards, including those already in Anki, between one card per mistake and one card per sentence, where you correct and type the whole sentence. The other kind is suspended, so your progress is kept either way.
+- Settings are grouped by the two sides of the main window.
+- Fixed: windows such as Settings could open on another desktop (Space) and seemed not to open at all; the new-card dialog no longer brings the main window over the page you are reading.
 
 **0.2.0**
 - Natural-sounding Piper voices (e.g. “Thorsten” for German), offline: Settings → Neural voices. The built app is now distributed under the GPL-3, see License.
