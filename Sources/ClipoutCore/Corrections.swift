@@ -100,7 +100,7 @@ public enum Corrections {
         let back = gapNote.fields["Back Extra"] ?? ""
         let withoutSpan = back.replacing(#/<span class="tip">|<\/span>/#, with: "")
         let tipStart = withoutSpan.firstMatch(of: #/(?i)\b(tipp?|tip):/#)?.range.lowerBound
-        let tip = tipStart.map { String(withoutSpan[$0...]) } ?? ""
+        let tip = numberedOnLines(tipStart.map { String(withoutSpan[$0...]) } ?? "")
         let original = String(withoutSpan[..<(tipStart ?? withoutSpan.endIndex)])
             .replacing(#/^\s*Original:\s*/#, with: "")
             .replacing(#/(\s|<br>)+$/#, with: "")
@@ -116,6 +116,13 @@ public enum Corrections {
                             "Audio": gapNote.fields["Audio"] ?? "",
                         ],
                         tags: gapNote.tags)
+    }
+
+    /// "Tipp: (1) … (3) …" → each numbered tip on its own line, for the
+    /// sentence card, which shows all of them. Unnumbered tips stay as they are.
+    public static func numberedOnLines(_ tip: String) -> String {
+        guard tip.firstMatch(of: #/(?i)^\s*(tipp?|tip):\s*\(\d+\)/#) != nil else { return tip }
+        return tip.replacing(#/\s*(\(\d+\))\s*/#) { "<br>\($0.1) " }
     }
 
     /// What to look out for when correcting the whole sentence: the hint of

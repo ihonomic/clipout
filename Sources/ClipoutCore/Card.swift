@@ -188,6 +188,48 @@ public enum CardModels {
     <hr id=answer>
     {{#Back Extra}}<div class="extra">{{Back Extra}}</div>{{/Back Extra}}
     {{Audio}}
+    <div id="clipout-gaps" hidden>{{Text}}</div>
+    <script>
+    \(tipForGapScript)
+    (function () {
+      var active = document.querySelector('.cloze[data-ordinal]');
+      var tip = document.querySelector('.extra .tip');
+      var raw = document.getElementById('clipout-gaps');
+      if (!active || !tip || !raw) return;
+      var picked = clipoutTipForGap(tip.innerHTML, active.getAttribute('data-ordinal'), raw.textContent);
+      if (picked === null) tip.remove(); else tip.innerHTML = picked;
+    })();
+    </script>
+    """
+
+    /// Each gap card shows only the tip for its own gap. The AI numbers the
+    /// tips after the gaps: "Tipp: (1) … (3) …"; a gap without a number gets
+    /// none (it needed no explanation). Older rows have one tip for the whole
+    /// sentence: with one gap it stays, with several each card shows the rule
+    /// from its own gap's hint ("meaning · rule") instead. Returns the tip's
+    /// new HTML, or null to hide it. Pure, so it can be tested on its own.
+    public static let tipForGapScript = """
+    function clipoutTipForGap(tipHTML, n, rawText) {
+      var label = (tipHTML.match(/^\\s*(Tipp?|Tip):\\s*/i) || [''])[0];
+      var body = tipHTML.slice(label.length);
+      if (/^\\(\\d+\\)/.test(body)) {
+        var parts = body.split(/\\s*\\((\\d+)\\)\\s*/);
+        for (var i = 1; i < parts.length; i += 2) {
+          if (parts[i] === String(n)) return label + parts[i + 1].trim();
+        }
+        return null;
+      }
+      var gaps = {}, hint = null, m, re = /\\{\\{c(\\d+)::(.*?)(?:::(.*?))?\\}\\}/g;
+      while ((m = re.exec(rawText))) {
+        gaps[m[1]] = true;
+        if (m[1] === String(n) && hint === null) hint = m[3] || '';
+      }
+      if (Object.keys(gaps).length <= 1) return tipHTML;
+      var rule = (hint || '').split('\u{00B7}').slice(1).join('\u{00B7}').trim();
+      if (!rule) return null;
+      var esc = rule.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return (label || 'Tipp: ') + esc;
+    }
     """
 
     static func isWebLink(_ url: String) -> Bool {

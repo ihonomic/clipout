@@ -360,3 +360,22 @@ func languageTextIsNotASecret(_ text: String) {
     #expect(note.fields["Audio"] == "[sound:clipout-a.mp3]")
 }
 
+
+@Test func numberedTipsGoOnTheirOwnLinesOnTheSentenceCard() {
+    let row = CorrectionRow(text: "Ich habe {{c1::einen Teil der Karten::some of the cards · Teil + Genitiv}} {{c2::gelernt::studied · Verb}}.",
+                            backExtra: "Original: Ich habe ein Teile karten gemacht<br>Tipp: (1) „Teil“ + Genitiv. (2) „gelernt“ passt besser.",
+                            sentence: "Ich habe einen Teil der Karten gelernt.", tags: [])
+    let note = Corrections.sentenceNote(from: Corrections.note(for: row, deck: "K", audioFile: nil))
+    #expect(note.fields["Tip"] == "Tipp:<br>(1) „Teil“ + Genitiv.<br>(2) „gelernt“ passt besser.")
+    // Unnumbered (older) tips stay as they are, parentheses inside included.
+    #expect(Corrections.numberedOnLines("Tipp: „gewachst“ (grow, wax) (1) x") == "Tipp: „gewachst“ (grow, wax) (1) x")
+    #expect(Corrections.numberedOnLines("") == "")
+}
+
+@Test func gapCardBackPicksItsOwnTip() {
+    #expect(CardModels.correctionBack.contains("function clipoutTipForGap"))
+    #expect(CardModels.correctionBack.contains("<div id=\"clipout-gaps\" hidden>{{Text}}</div>"))
+    // Anki reads {{ … }} as a field: the script must not contain any.
+    let script = CardModels.tipForGapScript
+    #expect(!script.contains("{{") && !script.contains("}}"))
+}

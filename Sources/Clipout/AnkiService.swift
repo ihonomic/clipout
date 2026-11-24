@@ -75,8 +75,17 @@ final class AnkiService: ObservableObject {
         } else if Prefs.correctionMode != UserDefaults.standard.string(forKey: Prefs.appliedCorrectionModeKey) {
             // Switched in Settings while Anki was closed.
             await applyCorrectionMode()
+        } else if !templatesChecked, !flushing {
+            // A new Clipout may bring new card templates; without this they
+            // only reached Anki with the next card you sent.
+            flushing = true
+            defer { flushing = false }
+            templatesChecked = (try? await prepareAnki()) != nil
         }
     }
+
+    /// Set once the note types match this version (see poll).
+    private var templatesChecked = false
 
     func send(_ note: AnkiNote, media: [String]) async -> SendOutcome {
         await send([(note, media)])[0]
