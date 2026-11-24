@@ -138,14 +138,16 @@ final class AppController: ObservableObject {
         let model = ComposerModel(text: text, source: source, imageURL: imageURL)
         var window: NSWindow?
         let view = ComposerView(model: model, controller: self) { window?.close() }
-        window = makeWindow(title: L("Neue Karte"), size: NSSize(width: 540, height: 600), content: view)
+        window = makeComposerPanel(title: L("Neue Karte"), size: NSSize(width: 540, height: 600), content: view)
         windows.append(window!)
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window,
                                                queue: .main) { [weak self] note in
             Task { @MainActor in self?.windows.removeAll { $0 === note.object as? NSWindow } }
             if temporaryImage, let imageURL { try? FileManager.default.removeItem(at: imageURL) }
         }
-        show(window)
+        // No NSApp.activate(): see KeyPanel.
+        window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
     }
 
     /// Brings a window forward. Key first, then activate: activating brings

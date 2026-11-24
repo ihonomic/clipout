@@ -88,3 +88,29 @@ func makeWindow<Content: View>(title: String, size: NSSize, content: Content) ->
     window.center()
     return window
 }
+
+/// Panel that takes the keyboard without activating Clipout. Activating the
+/// app made macOS jump to the Space of Clipout's main window (or bring that
+/// window forward), so the new card opened there instead of over the page,
+/// even over a full-screen app. Spotlight works the same way.
+final class KeyPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+/// The card composer: floats over the page you are reading, on its Space.
+@MainActor
+func makeComposerPanel<Content: View>(title: String, size: NSSize, content: Content) -> NSPanel {
+    let panel = KeyPanel(contentRect: NSRect(origin: .zero, size: size),
+                         styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
+                         backing: .buffered, defer: false)
+    panel.title = title
+    panel.isReleasedWhenClosed = false
+    panel.level = .floating
+    panel.hidesOnDeactivate = false
+    panel.becomesKeyOnlyIfNeeded = false
+    panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+    panel.contentView = NSHostingView(rootView: content)
+    panel.center()
+    return panel
+}
