@@ -67,8 +67,8 @@ enum CorrectionPrompt {
             return """
             Korrigiere meinen Text unten (Sprache: \(learn)). Gib danach jede Korrektur als Anki-Zeile aus, tabulatorgetrennt, ohne Kopfzeile, in einem Codeblock.
 
-            Spalte 1 (Text): der korrigierte Satz. Jede Korrektur ist eine Cloze: {{c1::korrekte Form::Bedeutung auf \(mine) · Grammatikregel}}. Bei Wortstellungsfehlern umfasst die Cloze den ganzen Satzteil, nicht nur das Verb.
-            Spalte 2 (Back Extra): Original: <mein Originalsatz><br>Tipp: (1) <Erklärung zu c1> (3) <Erklärung zu c3> – auf \(learn). Nur für Lücken, bei denen der Hinweis in der Cloze nicht reicht; die Nummer ist die der Lücke. Braucht keine Lücke einen Tipp, entfällt „<br>Tipp: …“.
+            Spalte 1 (Text): der korrigierte Satz. Jede Korrektur ist eine Cloze: {{c1::korrekte Form::Bedeutung auf \(mine) · Grammatikregel}}. Die Cloze ist so klein wie möglich: nur die Wörter, die falsch waren oder ihren Platz geändert haben; was schon richtig war, bleibt sichtbar. Bei Wortstellungsfehlern nennt der Hinweis zusätzlich die Wörter der Lücke in der Grundform, alphabetisch: {{c1::Was heißt::what does … mean · heißen, was · W-Frage: Verb an Position 2}}.
+            Spalte 2 (Back Extra): Original: <mein Originalsatz><br>Tipp: (1) <Erklärung zu c1> (3) <Erklärung zu c3> – auf \(learn). Einfache, klare Begründung in ganzen Sätzen, nur für Lücken, bei denen der Hinweis in der Cloze nicht reicht; die Nummer ist die der Lücke. Braucht keine Lücke einen Tipp, entfällt „<br>Tipp: …“.
             Spalte 3 (Satz): derselbe korrigierte Satz ohne Cloze-Markierungen.
             Spalte 4 (Tags): Fehlerkategorien aus dieser Liste, mit Leerzeichen getrennt: Wortstellung Kasus Modalverb Passiv Reflexiv FalscherFreund Wortschatz Ausdruck TrennbaresVerb Rechtschreibung Verbform – plus das heutige Datum: \(today).
 
@@ -85,8 +85,8 @@ enum CorrectionPrompt {
         return """
         Correct my text below (language: \(learn)). Then output every correction as an Anki line, tab-separated, without a header row, in a code block.
 
-        Column 1 (Text): the corrected sentence. Every correction is a cloze: {{c1::correct form::meaning in \(mine) · grammar rule}}. For word-order mistakes the cloze covers the whole phrase, not just the verb.
-        Column 2 (Back Extra): Original: <my original sentence><br>Tip: (1) <explanation for c1> (3) <explanation for c3> – in \(learn). Only for gaps whose cloze hint isn't enough; the number is the gap's. If no gap needs a tip, leave out "<br>Tip: …".
+        Column 1 (Text): the corrected sentence. Every correction is a cloze: {{c1::correct form::meaning in \(mine) · grammar rule}}. The cloze is as small as possible: only the words that were wrong or moved; what was already right stays visible. For word-order mistakes the hint also lists the words of the gap in their base form, alphabetically: {{c1::Was heißt::what does … mean · heißen, was · W-question: verb in position 2}}.
+        Column 2 (Back Extra): Original: <my original sentence><br>Tip: (1) <explanation for c1> (3) <explanation for c3> – in \(learn). A simple, clear reason in full sentences, only for gaps whose cloze hint isn't enough; the number is the gap's. If no gap needs a tip, leave out "<br>Tip: …".
         Column 3 (Sentence): the same corrected sentence without cloze markup.
         Column 4 (Tags): error categories from this list, separated by spaces: WordOrder Case ModalVerb Passive Reflexive FalseFriend Vocabulary Expression SeparableVerb Spelling VerbForm – plus today's date: \(today).
 
