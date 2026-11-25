@@ -8,17 +8,33 @@ import SwiftUI
 @MainActor
 final class CorrectionModel: ObservableObject {
     @Published var input = "" {
-        didSet { (rows, problems) = Corrections.parse(input) }
+        didSet {
+            (rows, problems) = Corrections.parse(input)
+            off = [:]
+        }
     }
+    /// As pasted, for the preview.
     @Published private(set) var rows: [CorrectionRow] = []
+    /// Gaps you switched off, by row: they stay corrected but get no card.
+    @Published private(set) var off: [Int: Set<Int>] = [:]
     @Published private(set) var problems: [Corrections.Problem] = []
     /// While sending: "Audio 3 of 12…".
     @Published private(set) var progress: String?
     @Published private(set) var result: String?
 
-    var cardCount: Int { rows.map(\.cardCount).reduce(0, +) }
+    /// What is sent: without the switched-off gaps; a sentence with none
+    /// left is not sent at all.
+    var rowsToSend: [CorrectionRow] {
+        rows.enumerated().map { $1.withoutGaps(off[$0] ?? []) }.filter { $0.cardCount > 0 }
+    }
+    var cardCount: Int { rowsToSend.map(\.cardCount).reduce(0, +) }
+
+    func toggle(row: Int, gap: Int) {
+        off[row, default: []].formSymmetricDifference([gap])
+    }
 
     func send(with controller: AppController) async {
+        let rows = rowsToSend
         guard !rows.isEmpty, progress == nil else { return }
         result = nil
         let deck = Prefs.correctionDeck
@@ -67,13 +83,14 @@ enum CorrectionPrompt {
             return """
             Korrigiere meinen Text unten (Sprache: \(learn)). Gib danach jede Korrektur als Anki-Zeile aus, tabulatorgetrennt, ohne Kopfzeile, in einem Codeblock.
 
-            Spalte 1 (Text): der korrigierte Satz. Jede Korrektur ist eine Cloze: {{c1::korrekte Form::Bedeutung auf \(mine) · Grammatikregel}}. Die Cloze ist so klein wie möglich: nur die Wörter, die falsch waren oder ihren Platz geändert haben; was schon richtig war, bleibt sichtbar. Bei Wortstellungsfehlern nennt der Hinweis zusätzlich die Wörter der Lücke in der Grundform, alphabetisch: {{c1::Was heißt::what does … mean · heißen, was · W-Frage: Verb an Position 2}}.
+            Spalte 1 (Text): der korrigierte Satz. Jede Korrektur ist eine Cloze: {{c1::korrekte Form::Bedeutung auf \(mine) · Grammatikregel}}. Die Cloze ist so klein wie möglich, höchstens 3 Wörter: nur die Wörter, die falsch waren oder ihren Platz geändert haben; was schon richtig war, bleibt sichtbar. Ist der Fehler größer, kommt nur sein Kern in die Lücke (das Verb, die Präposition), der Rest steht korrigiert im Satz. Bei Wortstellungsfehlern nennt der Hinweis zusätzlich die Wörter der Lücke in der Grundform, alphabetisch: {{c1::Was heißt::what does … mean · heißen, was · W-Frage: Verb an Position 2}}.
             Spalte 2 (Back Extra): Original: <mein Originalsatz><br>Tipp: (1) <Erklärung zu c1> (3) <Erklärung zu c3> – auf \(learn). Einfache, klare Begründung in ganzen Sätzen, nur für Lücken, bei denen der Hinweis in der Cloze nicht reicht; die Nummer ist die der Lücke. Braucht keine Lücke einen Tipp, entfällt „<br>Tipp: …“.
             Spalte 3 (Satz): derselbe korrigierte Satz ohne Cloze-Markierungen.
             Spalte 4 (Tags): Fehlerkategorien aus dieser Liste, mit Leerzeichen getrennt: Wortstellung Kasus Modalverb Passiv Reflexiv FalscherFreund Wortschatz Ausdruck TrennbaresVerb Rechtschreibung Verbform – plus das heutige Datum: \(today).
 
             Regeln:
-            - Jede Korrektur bekommt eine eigene Cloze, auch wenn sich ein Fehler wiederholt.
+            - Höchstens 2 Clozes pro Satz: nur die Fehler, bei denen ich am meisten lerne (Grammatik, Wortschatz, Ausdruck). Alle anderen Fehler korrigierst du im Satz, aber ohne Cloze.
+            - Nie eine Cloze für Kleinigkeiten: Groß- und Kleinschreibung, Tippfehler, ein vergessenes kleines Wort wie „und“.
             - Ausnahme: Artikel (der/die/das, ein/eine), Adjektivendungen, Deklination und Umlaute (ä, ö, ü) korrigierst du im Satz, aber ohne Cloze.
             - Ein Satz = eine Zeile. Mehrere Korrekturen im selben Satz = c1, c2, c3 in derselben Zeile.
             - Prüfe deine Korrekturen vor der Antwort noch einmal auf Rechtschreibung.
@@ -85,13 +102,14 @@ enum CorrectionPrompt {
         return """
         Correct my text below (language: \(learn)). Then output every correction as an Anki line, tab-separated, without a header row, in a code block.
 
-        Column 1 (Text): the corrected sentence. Every correction is a cloze: {{c1::correct form::meaning in \(mine) · grammar rule}}. The cloze is as small as possible: only the words that were wrong or moved; what was already right stays visible. For word-order mistakes the hint also lists the words of the gap in their base form, alphabetically: {{c1::Was heißt::what does … mean · heißen, was · W-question: verb in position 2}}.
+        Column 1 (Text): the corrected sentence. Every correction is a cloze: {{c1::correct form::meaning in \(mine) · grammar rule}}. The cloze is as small as possible, 3 words at most: only the words that were wrong or moved; what was already right stays visible. If the mistake is bigger, only its core goes into the gap (the verb, the preposition); the rest stands corrected in the sentence. For word-order mistakes the hint also lists the words of the gap in their base form, alphabetically: {{c1::Was heißt::what does … mean · heißen, was · W-question: verb in position 2}}.
         Column 2 (Back Extra): Original: <my original sentence><br>Tip: (1) <explanation for c1> (3) <explanation for c3> – in \(learn). A simple, clear reason in full sentences, only for gaps whose cloze hint isn't enough; the number is the gap's. If no gap needs a tip, leave out "<br>Tip: …".
         Column 3 (Sentence): the same corrected sentence without cloze markup.
         Column 4 (Tags): error categories from this list, separated by spaces: WordOrder Case ModalVerb Passive Reflexive FalseFriend Vocabulary Expression SeparableVerb Spelling VerbForm – plus today's date: \(today).
 
         Rules:
-        - Every correction gets its own cloze, even if a mistake repeats.
+        - At most 2 clozes per sentence: only the mistakes I learn the most from (grammar, vocabulary, expressions). Correct all other mistakes in the sentence, but without a cloze.
+        - Never a cloze for small things: capitalization, typos, a forgotten small word like "und".
         - Exception: articles, adjective endings, declension and umlauts (ä, ö, ü) are corrected in the sentence, but without a cloze.
         - One sentence = one line. Several corrections in the same sentence = c1, c2, c3 in the same line.
         - Check your corrections for spelling once more before answering.
@@ -207,13 +225,17 @@ struct CorrectionView: View {
             if model.rows.isEmpty {
                 Spacer()
             } else {
-                Text(L("%d Sätze · %d Karten", model.rows.count,
-                       Prefs.correctionMode == "sentence" ? model.rows.count : model.cardCount))
+                Text(L("%d Sätze · %d Karten", model.rowsToSend.count,
+                       Prefs.correctionMode == "sentence" ? model.rowsToSend.count : model.cardCount))
                     .font(.headline)
+                Text(L("Klick auf eine Lücke: keine Karte dafür (noch mal klicken: wieder an)."))
+                    .font(.caption).foregroundStyle(.secondary)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(model.rows.enumerated()), id: \.offset) { _, row in
-                            CorrectionRowView(row: row)
+                        ForEach(Array(model.rows.enumerated()), id: \.offset) { index, row in
+                            CorrectionRowView(row: row, off: model.off[index] ?? []) { gap in
+                                model.toggle(row: index, gap: gap)
+                            }
                             Divider()
                         }
                     }
@@ -238,7 +260,7 @@ struct CorrectionView: View {
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .buttonStyle(.borderedProminent)
-                .disabled(model.rows.isEmpty || model.progress != nil)
+                .disabled(model.rowsToSend.isEmpty || model.progress != nil)
             }
             if !anki.isUp, !model.rows.isEmpty {
                 Text(L("Anki ist nicht geöffnet: Die Karten warten in der Warteschlange, bis Anki läuft."))
@@ -277,13 +299,23 @@ final class Flag: ObservableObject {
 /// the back (original and tip) and the tags.
 struct CorrectionRowView: View {
     let row: CorrectionRow
+    /// Switched-off gap numbers: shown struck through.
+    var off: Set<Int> = []
+    var toggle: (Int) -> Void = { _ in }
+
+    private var cardCount: Int { row.withoutGaps(off).cardCount }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
+                // Each gap is a link: clicking it switches its card off or on.
                 Text(sentence).font(.system(size: 13))
+                    .environment(\.openURL, OpenURLAction { url in
+                        if url.scheme == "clipout-gap", let n = Int(url.host() ?? "") { toggle(n) }
+                        return .handled
+                    })
                 Spacer(minLength: 6)
-                Text(row.cardCount == 1 ? L("1 Karte") : L("%d Karten", row.cardCount))
+                Text(cardCount == 1 ? L("1 Karte") : L("%d Karten", cardCount))
                     .font(.caption2).foregroundStyle(.secondary)
             }
             if !row.backExtra.isEmpty {
@@ -300,13 +332,17 @@ struct CorrectionRowView: View {
     private var sentence: AttributedString {
         var result = AttributedString()
         var rest = row.text[...]
-        while let match = rest.firstMatch(of: #/\{\{c\d+::(.*?)(?:::(.*?))?\}\}/#) {
+        while let match = rest.firstMatch(of: #/\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/#) {
             result += AttributedString(String(rest[..<match.range.lowerBound]))
-            var gap = AttributedString(String(match.1))
-            gap.foregroundColor = .accentColor
-            gap.font = .system(size: 13, weight: .semibold)
+            let number = Int(match.1) ?? 1
+            let isOff = off.contains(number)
+            var gap = AttributedString(String(match.2))
+            gap.foregroundColor = isOff ? .secondary : .accentColor
+            gap.font = .system(size: 13, weight: isOff ? .regular : .semibold)
+            gap.strikethroughStyle = isOff ? .single : nil
+            gap.link = URL(string: "clipout-gap://\(number)")
             result += gap
-            if let hint = match.2 {
+            if let hint = match.3, !isOff {
                 var h = AttributedString(" [\(hint)]")
                 h.foregroundColor = .secondary
                 h.font = .system(size: 11)

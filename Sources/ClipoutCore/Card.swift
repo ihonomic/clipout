@@ -144,6 +144,8 @@ public enum CardModels {
     .tip { display: block; color: #c62828; font-style: normal; border-top: 1px solid #ddd;
       margin-top: 8px; padding-top: 8px; }
     .nightMode .tip, .night_mode .tip { color: #ff7a7a; border-top-color: #444; }
+    /* The front's hint, kept on the back under the revealed answer. */
+    .gap-hint { color: #888; font-size: 16px; margin: 4px auto 0; max-width: 640px; }
     """
     public static let correctionSentenceFields = ["Sentence", "Original", "Checklist", "Gaps", "Tip", "Audio"]
     public static let correctionSentenceCSS = css + """
@@ -184,6 +186,7 @@ public enum CardModels {
     """
     public static let correctionBack = """
     <div class="sentence">{{cloze:Text}}</div>
+    <div class="gap-hint" id="clipout-hint" hidden></div>
     {{type:cloze:Text}}
     <hr id=answer>
     {{#Back Extra}}<div class="extra">{{Back Extra}}</div>{{/Back Extra}}
@@ -195,6 +198,11 @@ public enum CardModels {
       var active = document.querySelector('.cloze[data-ordinal]');
       var tip = document.querySelector('.extra .tip');
       var raw = document.getElementById('clipout-gaps');
+      var hintBox = document.getElementById('clipout-hint');
+      if (active && raw && hintBox) {
+        var hint = clipoutHintForGap(active.getAttribute('data-ordinal'), raw.textContent);
+        if (hint) { hintBox.textContent = hint; hintBox.hidden = false; }
+      }
       if (!active || !tip || !raw) return;
       var picked = clipoutTipForGap(tip.innerHTML, active.getAttribute('data-ordinal'), raw.textContent);
       if (picked === null) tip.remove(); else tip.innerHTML = picked;
@@ -209,6 +217,13 @@ public enum CardModels {
     /// from its own gap's hint ("meaning · rule") instead. Returns the tip's
     /// new HTML, or null to hide it. Pure, so it can be tested on its own.
     public static let tipForGapScript = """
+    function clipoutHintForGap(n, rawText) {
+      var m, re = /\\{\\{c(\\d+)::(.*?)(?:::(.*?))?\\}\\}/g;
+      while ((m = re.exec(rawText))) {
+        if (m[1] === String(n) && m[3]) return m[3].trim();
+      }
+      return '';
+    }
     function clipoutTipForGap(tipHTML, n, rawText) {
       var label = (tipHTML.match(/^\\s*(Tipp?|Tip):\\s*/i) || [''])[0];
       var body = tipHTML.slice(label.length);

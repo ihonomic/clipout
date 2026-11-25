@@ -112,6 +112,7 @@ enum L10n {
         "%d Sätze · %d Karten": "%d sentences · %d cards",
         "1 Karte": "1 card",
         "%d Karten": "%d cards",
+        "Klick auf eine Lücke: keine Karte dafür (noch mal klicken: wieder an).": "Click a gap: no card for it (click again: back on).",
         "Deck für die Korrekturkarten": "Deck for the correction cards",
         "Audio": "Audio",
         "Audio %d von %d…": "Audio %d of %d…",

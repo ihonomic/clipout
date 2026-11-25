@@ -16,6 +16,18 @@ public struct CorrectionRow: Equatable, Sendable {
 
     /// Each cloze number becomes its own card in Anki.
     public var cardCount: Int { Set(Corrections.gaps(in: text).map(\.number)).count }
+
+    /// The row with these gaps switched off: they stay corrected in the
+    /// sentence but get no card, and their numbered tips ("(3) …") go too.
+    public func withoutGaps(_ off: Set<Int>) -> CorrectionRow {
+        guard !off.isEmpty else { return self }
+        var row = self
+        row.text = text.replacing(Corrections.gapPattern) { m in
+            off.contains(Int(m.1) ?? 1) ? String(m.2) : String(m.0)
+        }
+        row.backExtra = Corrections.droppingTips(off, from: backExtra)
+        return row
+    }
 }
 
 public enum Corrections {
@@ -41,7 +53,7 @@ public enum Corrections {
         case brokenGap
     }
 
-    private static let gapPattern = #/\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/#
+    static let gapPattern = #/\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/#
 
     public static func gaps(in text: String) -> [Gap] {
         text.matches(of: gapPattern).map { m in
@@ -116,6 +128,18 @@ public enum Corrections {
                             "Audio": gapNote.fields["Audio"] ?? "",
                         ],
                         tags: gapNote.tags)
+    }
+
+    /// Removes the numbered tips of these gaps; without any left, the whole
+    /// "<br>Tipp: …". Unnumbered tips belong to the sentence and stay.
+    static func droppingTips(_ off: Set<Int>, from back: String) -> String {
+        guard let label = back.firstMatch(of: #/(?i)(<br\s*\/?>)?\s*\b(tipp?|tip):\s*(?=\(\d+\))/#) else { return back }
+        let body = back[label.range.upperBound...]
+        let kept = body.matches(of: #/\((\d+)\)\s*(.*?)\s*(?=\(\d+\)|$)/#)
+            .filter { !off.contains(Int($0.1) ?? 0) }
+            .map { "(\($0.1)) \($0.2)" }
+        let head = String(back[..<label.range.lowerBound])
+        return kept.isEmpty ? head : head + label.output.0 + kept.joined(separator: " ")
     }
 
     /// "Tipp: (1) … (3) …" → each numbered tip on its own line, for the

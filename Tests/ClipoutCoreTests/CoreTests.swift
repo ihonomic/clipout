@@ -379,3 +379,25 @@ func languageTextIsNotASecret(_ text: String) {
     let script = CardModels.tipForGapScript
     #expect(!script.contains("{{") && !script.contains("}}"))
 }
+
+@Test func gapCardBackKeepsItsHint() {
+    #expect(CardModels.correctionBack.contains("id=\"clipout-hint\""))
+    #expect(CardModels.tipForGapScript.contains("function clipoutHintForGap"))
+}
+
+@Test func switchedOffGapsGetNoCardAndLoseTheirTip() {
+    let row = CorrectionRow(text: "Ich {{c1::bewerbe mich::apply · Reflexiv}} auf {{c2::eine}} {{c3::Stelle::job}}.",
+                            backExtra: "Original: Ich bewerbe auf Stelle.<br>Tipp: (1) Es heißt sich bewerben. (3) Nomen groß.",
+                            sentence: "Ich bewerbe mich auf eine Stelle.", tags: [])
+    let fewer = row.withoutGaps([2, 3])
+    #expect(fewer.text == "Ich {{c1::bewerbe mich::apply · Reflexiv}} auf eine Stelle.")
+    #expect(fewer.cardCount == 1)
+    #expect(fewer.backExtra == "Original: Ich bewerbe auf Stelle.<br>Tipp: (1) Es heißt sich bewerben.")
+    let none = row.withoutGaps([1, 2, 3])
+    #expect(none.cardCount == 0)
+    #expect(none.backExtra == "Original: Ich bewerbe auf Stelle.")
+    // An unnumbered tip belongs to the whole sentence and stays.
+    var plain = row
+    plain.backExtra = "Original: x<br>Tipp: Nomen groß."
+    #expect(plain.withoutGaps([3]).backExtra == "Original: x<br>Tipp: Nomen groß.")
+}
