@@ -141,9 +141,12 @@ public enum CardModels {
     .nightMode .extra, .night_mode .extra { color: #aaa; }
     #typeans { font-size: 22px; }
     /* Your original in italics above, the tip upright below a line. */
-    .tip { display: block; color: #c62828; font-style: normal; border-top: 1px solid #ddd;
+    .tip { display: block; color: #2e7d32; font-style: normal; border-top: 1px solid #ddd;
       margin-top: 8px; padding-top: 8px; }
-    .nightMode .tip, .night_mode .tip { color: #ff7a7a; border-top-color: #444; }
+    .nightMode .tip, .night_mode .tip { color: #81c784; border-top-color: #444; }
+    /* Words of your original that the correction changed. */
+    .wrong { color: #c62828; }
+    .nightMode .wrong, .night_mode .wrong { color: #ff7a7a; }
     /* The front's hint, kept on the back under the revealed answer. */
     .gap-hint { color: #888; font-size: 16px; margin: 4px auto 0; max-width: 640px; }
     """
@@ -155,9 +158,9 @@ public enum CardModels {
     .checklist { text-align: left; max-width: 640px; margin: 10px auto 0; font-size: 16px; color: #555; }
     .checklist ul { margin: 4px 0 0; padding-left: 22px; }
     .gaps { font-size: 22px; margin: 14px auto 6px; max-width: 640px; }
-    .tip { color: #c62828; font-size: 16px; text-align: left; max-width: 640px; margin: 10px auto 0; }
+    .tip { color: #2e7d32; font-size: 16px; text-align: left; max-width: 640px; margin: 10px auto 0; }
     .nightMode .original, .night_mode .original, .nightMode .checklist, .night_mode .checklist { color: #aaa; }
-    .nightMode .tip, .night_mode .tip { color: #ff7a7a; }
+    .nightMode .tip, .night_mode .tip { color: #81c784; }
     /* Anki's typing box is one line: small type so a whole sentence fits. */
     #typeans { font-size: 14px; width: 100%; box-sizing: border-box; }
     """
@@ -192,8 +195,23 @@ public enum CardModels {
     {{#Back Extra}}<div class="extra">{{Back Extra}}</div>{{/Back Extra}}
     {{Audio}}
     <div id="clipout-gaps" hidden>{{Text}}</div>
+    <div id="clipout-sentence" hidden>{{Sentence}}</div>
     <script>
     \(tipForGapScript)
+    \(markOriginalScript)
+    (function () {
+      var extra = document.querySelector('.extra');
+      var fixed = document.getElementById('clipout-sentence');
+      if (!extra || !fixed) return;
+      var tip = extra.querySelector('.tip');
+      var head = document.createElement('div');
+      var node = extra.firstChild;
+      while (node && node !== tip) { var next = node.nextSibling; head.appendChild(node); node = next; }
+      var text = head.textContent.replace(/^\\s*Original:\\s*/i, '');
+      var marked = document.createElement('span');
+      marked.innerHTML = 'Original: ' + clipoutMarkOriginal(text, fixed.textContent) + (tip ? '<br>' : '');
+      extra.insertBefore(marked, tip);
+    })();
     (function () {
       var active = document.querySelector('.cloze[data-ordinal]');
       var tip = document.querySelector('.extra .tip');
@@ -216,6 +234,28 @@ public enum CardModels {
     /// sentence: with one gap it stays, with several each card shows the rule
     /// from its own gap's hint ("meaning · rule") instead. Returns the tip's
     /// new HTML, or null to hide it. Pure, so it can be tested on its own.
+    /// Your original with the words the correction changed in red: word
+    /// diff (longest common subsequence) against the corrected sentence,
+    /// ignoring case and punctuation. Returns escaped HTML. Pure.
+    public static let markOriginalScript = """
+    function clipoutMarkOriginal(original, fixed) {
+      function norm(w) { return w.toLowerCase().replace(/[^\\p{L}\\p{N}]/gu, ''); }
+      function esc(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+      var a = original.trim().split(/\\s+/), b = fixed.trim().split(/\\s+/).map(norm);
+      var n = a.length, m = b.length, an = a.map(norm), L = [], i, j;
+      for (i = 0; i <= n; i++) { L.push(new Array(m + 1).fill(0)); }
+      for (i = n - 1; i >= 0; i--) for (j = m - 1; j >= 0; j--)
+        L[i][j] = an[i] && an[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+      var out = [];
+      for (i = 0, j = 0; i < n;) {
+        if (j < m && an[i] && an[i] === b[j]) { out.push(esc(a[i])); i++; j++; }
+        else if (j < m && L[i][j + 1] >= L[i + 1][j]) { j++; }
+        else { out.push(an[i] ? '<span class="wrong">' + esc(a[i]) + '</span>' : esc(a[i])); i++; }
+      }
+      return out.join(' ');
+    }
+    """
+
     public static let tipForGapScript = """
     function clipoutHintForGap(n, rawText) {
       var m, re = /\\{\\{c(\\d+)::(.*?)(?:::(.*?))?\\}\\}/g;

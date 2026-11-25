@@ -130,6 +130,30 @@ public enum Corrections {
                         tags: gapNote.tags)
     }
 
+    /// Your original word by word, each marked when the correction changed
+    /// it: the same comparison the card's back makes (longest common
+    /// subsequence of words, ignoring case and punctuation).
+    public static func markedOriginal(_ original: String, fixed: String) -> [(word: String, wrong: Bool)] {
+        func norm(_ w: Substring) -> String { String(w.lowercased().unicodeScalars.filter(CharacterSet.alphanumerics.contains)) }
+        let a = original.split(whereSeparator: \.isWhitespace), an = a.map(norm)
+        let b = fixed.split(whereSeparator: \.isWhitespace).map(norm)
+        let n = a.count, m = b.count
+        var L = Array(repeating: Array(repeating: 0, count: m + 1), count: n + 1)
+        for i in stride(from: n - 1, through: 0, by: -1) {
+            for j in stride(from: m - 1, through: 0, by: -1) {
+                L[i][j] = !an[i].isEmpty && an[i] == b[j] ? L[i + 1][j + 1] + 1 : max(L[i + 1][j], L[i][j + 1])
+            }
+        }
+        var out: [(word: String, wrong: Bool)] = []
+        var i = 0, j = 0
+        while i < n {
+            if j < m, !an[i].isEmpty, an[i] == b[j] { out.append((String(a[i]), false)); i += 1; j += 1 }
+            else if j < m, L[i][j + 1] >= L[i + 1][j] { j += 1 }
+            else { out.append((String(a[i]), !an[i].isEmpty)); i += 1 }
+        }
+        return out
+    }
+
     /// Removes the numbered tips of these gaps; without any left, the whole
     /// "<br>Tipp: …". Unnumbered tips belong to the sentence and stay.
     static func droppingTips(_ off: Set<Int>, from back: String) -> String {

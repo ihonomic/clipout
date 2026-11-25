@@ -319,7 +319,7 @@ struct CorrectionRowView: View {
                     .font(.caption2).foregroundStyle(.secondary)
             }
             if !row.backExtra.isEmpty {
-                Text(back).font(.caption).foregroundStyle(.secondary)
+                Text(back).font(.caption)
             }
             if !row.tags.isEmpty {
                 Text(row.tags.joined(separator: " · ")).font(.caption2).foregroundStyle(.tertiary)
@@ -354,10 +354,37 @@ struct CorrectionRowView: View {
         return result
     }
 
-    /// "Original: …<br>Tipp: …" as plain lines.
-    private var back: String {
-        row.backExtra
+    /// "Original: …<br>Tipp: …" as on the card's back: the words the
+    /// correction changed in red, the tip in green, the rest grey.
+    private var back: AttributedString {
+        let plain = row.backExtra
             .replacing(#/(?i)<br\s*\/?>/#, with: "\n")
             .replacing(#/<[^>]+>/#, with: "")
+        var result = AttributedString()
+        var inTip = false
+        for (index, line) in plain.components(separatedBy: "\n").enumerated() {
+            if index > 0 { result += AttributedString("\n") }
+            if line.firstMatch(of: #/(?i)^\s*(tipp?|tip):/#) != nil { inTip = true }
+            if inTip {
+                var tip = AttributedString(line)
+                tip.foregroundColor = .green
+                result += tip
+            } else if let label = line.firstMatch(of: #/^\s*Original:\s*/#) {
+                var head = AttributedString(String(line[..<label.range.upperBound]))
+                head.foregroundColor = .secondary
+                result += head
+                let words = Corrections.markedOriginal(String(line[label.range.upperBound...]), fixed: row.sentence)
+                for (k, w) in words.enumerated() {
+                    var piece = AttributedString((k > 0 ? " " : "") + w.word)
+                    piece.foregroundColor = w.wrong ? .red : .secondary
+                    result += piece
+                }
+            } else {
+                var rest = AttributedString(line)
+                rest.foregroundColor = .secondary
+                result += rest
+            }
+        }
+        return result
     }
 }

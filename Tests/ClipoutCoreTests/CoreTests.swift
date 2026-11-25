@@ -401,3 +401,18 @@ func languageTextIsNotASecret(_ text: String) {
     plain.backExtra = "Original: x<br>Tipp: Nomen groß."
     #expect(plain.withoutGaps([3]).backExtra == "Original: x<br>Tipp: Nomen groß.")
 }
+
+@Test func gapCardBackMarksTheOriginal() {
+    #expect(CardModels.correctionBack.contains("<div id=\"clipout-sentence\" hidden>{{Sentence}}</div>"))
+    #expect(CardModels.correctionCSS.contains(".wrong"))
+    let script = CardModels.markOriginalScript
+    #expect(!script.contains("{{") && !script.contains("}}"))
+}
+
+@Test func previewMarksTheWordsTheCorrectionChanged() {
+    let marked = Corrections.markedOriginal("Wird das Prompt sich ändern verlangen?",
+                                           fixed: "Muss der Prompt dafür geändert werden?")
+    #expect(marked.filter(\.wrong).map(\.word) == ["Wird", "das", "sich", "ändern", "verlangen?"])
+    #expect(Corrections.markedOriginal("Das kann ich nicht tragbar.", fixed: "Das kann ich nicht ertragen.")
+        .filter(\.wrong).map(\.word) == ["tragbar."])
+}
